@@ -12,7 +12,7 @@ spring:
         namespace: star-lesson-dev
         group: sl-group
         file-extension: yaml
-  config:# 本地关键配置
+  # 本地关键配置
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://192.168.227.128:3306/tj_media?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false

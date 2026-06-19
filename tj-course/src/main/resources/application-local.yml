@@ -38,6 +38,8 @@ rocketmq:
     group: course-service-producer
     send-message-timeout: 3000
     retry-times-when-send-failed: 2
+seata:
+  enabled: false
 logging:
   level:
     com.tianji: debug
