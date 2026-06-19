@@ -18,31 +18,53 @@ export default defineConfig((mode) => {
       },
     },
     plugins: [vue(), vueJsx(), svgLoader()],
-    // server:{
-    //   port: 8081
-    // }
     server: {
       port: 18081,
       host: "0.0.0.0",
       proxy: {
-        '/img-tx': {
-          // target:  'https://tjxt-dev.itheima.net/', // 'http://172.17.2.134',
-          target:  'http://www.tianji.com/',
+        // API 请求全部转发到网关 10010，避开跨域
+        '/as': {
+          target: 'http://localhost:10010',
           changeOrigin: true,
-          // rewrite: (path) => {
-          //   return path.replace(/^\/img-tx/, '')
-          // }
+        },
+        '/us': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/ms': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/cs': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/ais': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/chat': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/file': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/session': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        // 静态资源代理
+        '/img-tx': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/img-minio': {
+          target: 'http://192.168.227.128:9000/',
+          changeOrigin: true,
         },
       },
-      // proxy: {
-      //   "/img-tx": {
-      //     target: "https://tjxt-dev.itheima.net",
-      //     changeOrigin: true,
-      //     // rewrite: (path) => {
-      //     //   return path.replace(/^\/img-tx/, '')
-      //     // }
-      //   },
-      // },
     },
   };
 });

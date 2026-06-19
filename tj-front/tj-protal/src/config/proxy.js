@@ -1,8 +1,7 @@
 export default {
   development: {
-    // 开发环境接口请求
-    // host: 'https://tjxt-dev.itheima.net/api',
-    host: 'http://api.tianji.com',
+    // 开发环境接口请求 - 走 Vite 代理（/as /us /ais /chat /file /session 等全部转发到网关）
+    host: '',
     // 开发环境 cdn 路径
     cdn: '',
   },

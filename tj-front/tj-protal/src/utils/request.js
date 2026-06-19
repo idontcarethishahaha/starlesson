@@ -19,8 +19,8 @@ let isLogin = true
 
 const instance = axios.create({
   baseURL:  host, // 'http://172.17.2.134/api-test',
-  timeout: 1000,
-  withCredentials: false,
+  timeout: 30000,
+  withCredentials: true,
 });
 
 instance.interceptors.request.use((config) => {
@@ -50,7 +50,7 @@ instance.interceptors.request.use((config) => {
   return config
 });
 
-instance.defaults.timeout = 5000;
+instance.defaults.timeout = 30000;
 async function refreshToken(err){
   // 尝试刷新token
   let success = await tryRefreshToken();

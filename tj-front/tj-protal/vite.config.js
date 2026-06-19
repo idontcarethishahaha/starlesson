@@ -29,42 +29,47 @@ export default defineConfig((mode) => {
       port: 18082,
       host: '0.0.0.0',
       proxy: {
-        '/img-tx': {
-          // target:  'https://tjxt-dev.itheima.net/', // 'http://172.17.2.134',
-          target:  'http://www.tianji.com/',
+        // API 请求全部转发到网关 10010，避开跨域
+        '/as': {
+          target: 'http://localhost:10010',
           changeOrigin: true,
-          // rewrite: (path) => {
-          //   return path.replace(/^\/img-tx/, '')
-          // }
+        },
+        '/us': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/ms': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/cs': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/ais': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/chat': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/file': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/session': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        // 静态资源代理
+        '/img-tx': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
         },
         '/img-minio': {
-          // target:  'https://tjxt-dev.itheima.net/', // 'http://172.17.2.134',
-          target:  'http://192.168.227.128:9000/',
+          target: 'http://192.168.227.128:9000/',
           changeOrigin: true,
-          // rewrite: (path) => {
-          //   return path.replace(/^\/img-tx/, '')
-          // }
-        },
-        // AI 服务代理 - 统一通过网关转发
-        // /ais/** -> tj-aigc 服务（智能体 + RAG 对话）
-        '/ais': {
-            target: 'http://api.tianji.com',
-            changeOrigin: true,
-        },
-        // /chat/** -> tj-chat 服务（RAG 知识库 + 流式聊天）
-        '/chat': {
-            target: 'http://api.tianji.com',
-            changeOrigin: true,
-        },
-        // /file/** -> tj-chat 服务（知识库文件管理）
-        '/file': {
-            target: 'http://api.tianji.com',
-            changeOrigin: true,
-        },
-        // /session/** -> tj-chat 服务（用户会话管理）
-        '/session': {
-            target: 'http://api.tianji.com',
-            changeOrigin: true,
         },
       }
     },

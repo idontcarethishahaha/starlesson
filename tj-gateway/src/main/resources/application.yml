@@ -72,6 +72,10 @@ spring:
           uri: lb://aigc-service
           predicates:
             - Path=/ais/**
+        - id: cht
+          uri: lb://chat-service
+          predicates:
+            - Path=/chat/**,/file/**,/session/**
       default-filters:
         - StripPrefix=1
       globalcors: # 全局的跨域处理
