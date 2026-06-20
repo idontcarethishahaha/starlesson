@@ -9,6 +9,21 @@ const PW_LOGIN_TYPE = 1;
 // export const saveWxUuid = (uuid) => ...
 // export const checkWxLoginStatus = (uuid) => ...
 
+// 微信登录相关 API（后端若无对应接口，可先注释掉调用处）
+export const saveWxUuid = (uuid) =>
+	request({
+		url: `${USER_API_PREFIX}/students/wx/uuid`,
+		method: 'post',
+		data: { uuid }
+	});
+
+export const checkWxLoginStatus = (uuid) =>
+	request({
+		url: `${USER_API_PREFIX}/students/wx/status`,
+		method: 'get',
+		params: { uuid }
+	});
+
 // 手机号验证码登录
 export const phoneLogins = (data) => {
 	data.type = PHONE_LOGIN_TYPE;
