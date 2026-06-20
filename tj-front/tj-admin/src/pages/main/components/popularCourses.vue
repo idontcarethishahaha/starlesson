@@ -19,10 +19,10 @@
         min-width="220px"
         class-name="textLeft"
         prop="category"
-        show-overflow-tooltip="true"
+        :show-overflow-tooltip="true"
       >
       </el-table-column>
-      <el-table-column label="课程名称" min-width="250px" prop="name"  show-overflow-tooltip="true">
+      <el-table-column label="课程名称" min-width="250px" prop="name"  :show-overflow-tooltip="true">
       </el-table-column>
       <el-table-column
         prop="newStuNum"
@@ -51,8 +51,8 @@ import { reactive, watch } from "vue"
 // 接收父级传参
 const props = defineProps({
   formData: {
-    type: Object,
-    default: () => ({}),
+    type: Array,
+    default: () => [],
   }
 })
 const baseData = reactive({
@@ -89,6 +89,7 @@ const getData = () => {
 }
 // 创建方法，给每个数据添加排名图片路径
 const addRankImg = () => {
+  if (!Array.isArray(baseData.hot)) return
   baseData.hot.forEach((item, index) => {
     item.rankImg = rankImg[index]
   })

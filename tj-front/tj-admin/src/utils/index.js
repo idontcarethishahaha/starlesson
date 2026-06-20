@@ -277,3 +277,19 @@ export const channelInputKeyCode = (e) => {
   }
   return true;
 };
+
+export const formatAvatarUrl = (url) => {
+  if (!url) {
+    return '';
+  }
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+  if (url.startsWith('/img-tx/')) {
+    return url;
+  }
+  if (url.startsWith('img-tx/')) {
+    return '/' + url;
+  }
+  return '/img-tx/' + url;
+};

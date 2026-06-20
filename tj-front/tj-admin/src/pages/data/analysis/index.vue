@@ -84,19 +84,34 @@ const handleSearch = async () => {
     try {
         // 获取课程转换漏斗数据
         const courseConversionResponse = await getCourseConversionDpv(searchForm);
-        courseConversionMetrics.value = courseConversionResponse.data;
+        if (courseConversionResponse.code === 200 && courseConversionResponse.data) {
+            courseConversionMetrics.value = courseConversionResponse.data;
+        } else {
+            courseConversionMetrics.value = null;
+        }
 
         // 获取课程详情性别分布数据
         const courseDetailGenderResponse = await getCourseDetailGenderDuv(searchForm);
-        courseDetailGenderMetrics.value = courseDetailGenderResponse.data;
+        if (courseDetailGenderResponse.code === 200 && courseDetailGenderResponse.data) {
+            courseDetailGenderMetrics.value = courseDetailGenderResponse.data;
+        } else {
+            courseDetailGenderMetrics.value = null;
+        }
 
         // 获取课程详情省排名数据
         const courseDetailProvinceResponse = await getCourseDetailProvinceDuv(searchForm);
-        courseDetailProvinceMetrics.value = courseDetailProvinceResponse.data;
+        if (courseDetailProvinceResponse.code === 200 && courseDetailProvinceResponse.data) {
+            courseDetailProvinceMetrics.value = courseDetailProvinceResponse.data;
+        } else {
+            courseDetailProvinceMetrics.value = null;
+        }
 
         console.log('所有数据获取完成');
     } catch (error) {
         ElMessage.error('查询失败: ' + error.message);
+        courseConversionMetrics.value = null;
+        courseDetailGenderMetrics.value = null;
+        courseDetailProvinceMetrics.value = null;
     }
 };
 

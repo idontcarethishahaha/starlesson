@@ -14,8 +14,8 @@
       <el-table-column label="学员昵称" min-width="240" class-name="studentname">
         <template #default="scope">
           <div class="head" style="justify-content: left ;">
-            <span @click="handleMagnify(scope.row.icon)">
-              <img :src="scope.row.icon" />
+            <span @click="handleMagnify(formatAvatarUrl(scope.row.icon))">
+              <img :src="formatAvatarUrl(scope.row.icon)" :alt="scope.row.name" />
               <span class="shade"><i></i></span>
             </span>
             {{ scope.row.name }}
@@ -128,7 +128,7 @@
 <script setup>
 import { ref } from "vue";
 import { ElMessage } from "element-plus";
-import { formatTime } from "@/utils/index";
+import { formatTime, formatAvatarUrl } from "@/utils/index";
 // 接口
 import { pwdReset, usersStatus } from "@/api/user";
 // 导入组件

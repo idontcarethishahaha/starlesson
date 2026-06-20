@@ -83,8 +83,8 @@ const handleSearch = async () => {
             ElMessage.error(response.msg);
             return
         }
-        logs.value.data = response.data.list;
-        logs.value.total = parseInt(response.data.total) || 0;
+        logs.value.data = response.data?.list || [];
+        logs.value.total = parseInt(response.data?.total) || 0;
 
         console.log('获取指标数据',searchForm)
         let metricResponse;

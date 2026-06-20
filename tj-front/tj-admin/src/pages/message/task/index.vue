@@ -150,7 +150,13 @@ const handleSearch = async () => {
   try {
     console.log(searchForm)
     const res = await queryNoticeTasks(searchForm);
-    noticeTasks.value.data = res.data.list;
+    if (res?.code === 200 && res?.data) {
+      noticeTasks.value.data = res.data?.list || [];
+      noticeTasks.value.total = res.data?.total || 0;
+    } else {
+      noticeTasks.value.data = [];
+      noticeTasks.value.total = 0;
+    }
     loading.value = false;
   } catch (error) {
     ElMessage.error('查询失败');
@@ -279,8 +285,12 @@ const handleSelectVisibleChange = (visible) => {
 // 查询通知模板
 const fetchNoticeTemplates = async () => {
   try {
-    const res = await queryNoticeTemplates({ pageNo: 1, pageSize: 100 }); // 假设一次查询100条模板数据
-    noticeTemplates.value = res.data.list;
+    const res = await queryNoticeTemplates({ pageNo: 1, pageSize: 100 });
+    if (res?.code === 200 && res?.data) {
+      noticeTemplates.value = res.data?.list || [];
+    } else {
+      noticeTemplates.value = [];
+    }
   } catch (error) {
     ElMessage.error('查询通知模板失败');
   }

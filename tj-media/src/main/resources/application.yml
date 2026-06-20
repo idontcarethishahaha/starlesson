@@ -23,6 +23,8 @@ tj:
       enable: true
       excludeLoginPaths:
         - /medias/signature/play
+        - /files/**
+        - /img-tx/**
   jdbc:
     database: tj_media
   platform:

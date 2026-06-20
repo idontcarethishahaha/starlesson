@@ -105,8 +105,13 @@ const handleSearch = async () => {
             pageSize: pageSize.value
         };
         const userProfileResponse = await getAnalysisResultByUser(searchParams);
-        tableData.value = userProfileResponse.data.list;
-        total.value = userProfileResponse.data.total;
+        if (userProfileResponse?.code === 200 && userProfileResponse?.data) {
+            tableData.value = userProfileResponse.data?.list || [];
+            total.value = userProfileResponse.data?.total || 0;
+        } else {
+            tableData.value = [];
+            total.value = 0;
+        }
         console.log('用户画像数据获取完成');
     } catch (error) {
         ElMessage.error('查询失败: ' + error.message);

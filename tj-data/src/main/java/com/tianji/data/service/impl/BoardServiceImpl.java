@@ -5,7 +5,9 @@ import com.tianji.common.utils.NumberUtils;
 import com.tianji.data.constants.DataTypeEnum;
 import com.tianji.data.model.dto.BoardDataSetDTO;
 import com.tianji.data.model.vo.AxisVO;
+import com.tianji.data.model.vo.CourseBoardVO;
 import com.tianji.data.model.vo.EchartsVO;
+import com.tianji.data.model.vo.OrderBoardVO;
 import com.tianji.data.model.vo.SerierVO;
 import com.tianji.data.service.BoardService;
 import com.tianji.data.utils.DataUtils;
@@ -17,7 +19,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static com.tianji.data.constants.RedisConstants.KEY_BOARD_COURSE;
 import static com.tianji.data.constants.RedisConstants.KEY_BOARD_DATA;
+import static com.tianji.data.constants.RedisConstants.KEY_BOARD_ORDER;
 
 /**
  * @ClassName BoardServiceImpl
@@ -87,5 +91,25 @@ public class BoardServiceImpl implements BoardService {
                 .put(key,
                         boardDataSetDTO.getType().toString(),
                         JsonUtils.toJsonStr(boardDataSetDTO.getData()));
+    }
+
+    @Override
+    public OrderBoardVO getOrderBoard() {
+        String key = KEY_BOARD_ORDER + DataUtils.getVersion(1);
+        Object originData = redisTemplate.opsForValue().get(key);
+        if (originData == null) {
+            return new OrderBoardVO();
+        }
+        return JsonUtils.toBean(originData.toString(), OrderBoardVO.class);
+    }
+
+    @Override
+    public CourseBoardVO getCourseBoard() {
+        String key = KEY_BOARD_COURSE + DataUtils.getVersion(1);
+        Object originData = redisTemplate.opsForValue().get(key);
+        if (originData == null) {
+            return new CourseBoardVO();
+        }
+        return JsonUtils.toBean(originData.toString(), CourseBoardVO.class);
     }
 }

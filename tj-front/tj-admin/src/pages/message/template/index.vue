@@ -66,8 +66,14 @@
     loading.value = true;
     try {
       const res = await queryNoticeTemplates(searchForm);
-      noticeTemplates.value.data = res.data.list;
-      noticeTemplates.value.total = res.data.total;
+      if (res.code !== 200) {
+        ElMessage.error(res.msg || '查询失败');
+        loading.value = false;
+        return;
+      }
+      const data = res.data || res;
+      noticeTemplates.value.data = data.list || data.records || [];
+      noticeTemplates.value.total = data.total || 0;
       loading.value = false;
     } catch (error) {
       ElMessage.error('查询失败');

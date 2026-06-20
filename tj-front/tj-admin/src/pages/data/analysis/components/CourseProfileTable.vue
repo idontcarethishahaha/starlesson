@@ -70,8 +70,13 @@ const handleSearch = async () => {
             pageSize: pageSize.value
         };
         const courseProfileResponse = await getAnalysisResultByCourse(searchParams);
-        tableData.value = courseProfileResponse.data.list;
-        total.value = courseProfileResponse.data.total;
+        if (courseProfileResponse?.code === 200 && courseProfileResponse?.data) {
+            tableData.value = courseProfileResponse.data?.list || [];
+            total.value = courseProfileResponse.data?.total || 0;
+        } else {
+            tableData.value = [];
+            total.value = 0;
+        }
         console.log('课程画像数据获取完成');
     } catch (error) {
         ElMessage.error('查询失败: ' + error.message);
