@@ -14,7 +14,9 @@ import org.elasticsearch.action.get.GetRequest;
 import org.elasticsearch.action.get.GetResponse;
 import org.elasticsearch.action.index.IndexRequest;
 import org.elasticsearch.action.update.UpdateRequest;
+import org.elasticsearch.client.Request;
 import org.elasticsearch.client.RequestOptions;
+import org.elasticsearch.client.Response;
 import org.elasticsearch.client.RestHighLevelClient;
 import org.elasticsearch.common.xcontent.XContentType;
 import org.elasticsearch.rest.RestStatus;
@@ -35,9 +37,11 @@ import static com.tianji.search.constants.SearchErrorInfo.*;
 public class CourseRepositoryImpl implements CourseRepository {
   
     private final RestHighLevelClient restHighLevelClient;
+    private final org.elasticsearch.client.RestClient restClient;
 
     public CourseRepositoryImpl(RestHighLevelClient restHighLevelClient) {
         this.restHighLevelClient = restHighLevelClient;
+        this.restClient = restHighLevelClient.getLowLevelClient();
     }
 
     @Override
@@ -170,6 +174,97 @@ public class CourseRepositoryImpl implements CourseRepository {
                 }
             }
         } catch (IOException e) {
+            throw new CommonException(SAVE_COURSE_ERROR, e);
+        }
+    }
+
+    @Override
+    public boolean isIndexHealthy() {
+        try {
+            // 1. HEAD /course 检查索引是否存在
+            Request headRequest = new Request("HEAD", "/" + INDEX_NAME);
+            Response response = restClient.performRequest(headRequest);
+            int status = response.getStatusLine().getStatusCode();
+            if (status != 200) {
+                log.warn("ES索引[{}]不存在，status={}", INDEX_NAME, status);
+                return false;
+            }
+            // 2. GET /course/_count 检查文档数量
+            long docCount = getDocCount();
+            if (docCount < 0) {
+                log.warn("ES索引[{}]查询失败，需要重建", INDEX_NAME);
+                return false;
+            }
+            if (docCount == 0) {
+                log.warn("ES索引[{}]存在但无文档，需要重建", INDEX_NAME);
+                return false;
+            }
+            log.info("ES索引[{}]健康，包含{}条文档", INDEX_NAME, docCount);
+            return true;
+        } catch (Exception e) {
+            log.warn("ES索引[{}]不健康: {}", INDEX_NAME, e.getMessage());
+            return false;
+        }
+    }
+
+    @Override
+    public long getDocCount() {
+        try {
+            Request request = new Request("GET", "/" + INDEX_NAME + "/_count");
+            Response response = restClient.performRequest(request);
+            String body = org.apache.http.util.EntityUtils.toString(response.getEntity());
+            // 解析 {"count": 10, "_shards": {...}}
+            if (body != null && body.contains("\"count\":")) {
+                String countStr = body.split("\"count\":")[1].split(",")[0].trim();
+                return Long.parseLong(countStr);
+            }
+            return -1;
+        } catch (Exception e) {
+            log.warn("获取索引[{}]文档数失败: {}", INDEX_NAME, e.getMessage());
+            return -1;
+        }
+    }
+
+    @Override
+    public void rebuildIndex() {
+        try {
+            // 1.如果索引存在，先删除
+            try {
+                Request headRequest = new Request("HEAD", "/" + INDEX_NAME);
+                Response headResponse = restClient.performRequest(headRequest);
+                if (headResponse.getStatusLine().getStatusCode() == 200) {
+                    Request deleteRequest = new Request("DELETE", "/" + INDEX_NAME);
+                    restClient.performRequest(deleteRequest);
+                    log.info("已删除旧索引[{}]", INDEX_NAME);
+                }
+            } catch (Exception e) {
+                // 索引不存在，忽略
+            }
+            // 2.创建新索引，指定正确的mapping
+            String mapping = "{\n" +
+                    "  \"properties\": {\n" +
+                    "    \"id\": {\"type\": \"long\"},\n" +
+                    "    \"name\": {\"type\": \"text\", \"analyzer\": \"standard\", \"search_analyzer\": \"standard\", \"fields\": {\"keyword\": {\"type\": \"keyword\"}}},\n" +
+                    "    \"categoryIdLv1\": {\"type\": \"long\"},\n" +
+                    "    \"categoryIdLv2\": {\"type\": \"long\"},\n" +
+                    "    \"categoryIdLv3\": {\"type\": \"long\"},\n" +
+                    "    \"free\": {\"type\": \"boolean\"},\n" +
+                    "    \"type\": {\"type\": \"integer\"},\n" +
+                    "    \"sold\": {\"type\": \"integer\"},\n" +
+                    "    \"price\": {\"type\": \"integer\"},\n" +
+                    "    \"score\": {\"type\": \"integer\"},\n" +
+                    "    \"teacher\": {\"type\": \"long\"},\n" +
+                    "    \"sections\": {\"type\": \"integer\"},\n" +
+                    "    \"coverUrl\": {\"type\": \"keyword\"},\n" +
+                    "    \"publishTime\": {\"type\": \"date\", \"format\": \"yyyy-MM-dd'T'HH:mm:ss||yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis\"}\n" +
+                    "  }\n" +
+                    "}";
+            Request createRequest = new Request("PUT", "/" + INDEX_NAME);
+            createRequest.setJsonEntity(mapping);
+            restClient.performRequest(createRequest);
+            log.info("已创建新索引[{}]", INDEX_NAME);
+        } catch (Exception e) {
+            log.error("重建索引[{}]失败: {}", INDEX_NAME, e.getMessage());
             throw new CommonException(SAVE_COURSE_ERROR, e);
         }
     }

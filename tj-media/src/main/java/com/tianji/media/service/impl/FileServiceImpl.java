@@ -86,6 +86,14 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements IF
         return FileDTO.of(file.getId(), file.getFilename(), file.getPlatform().getPath() + file.getKey());
     }
 
+    @Override
+    public InputStream downloadByKey(String key) {
+        if (StringUtils.isBlank(key)) {
+            return null;
+        }
+        return fileStorage.downloadFile(key);
+    }
+
     private String generateNewFileName(String originalFilename) {
         // 1.获取后缀
         String suffix = StringUtils.subAfter(originalFilename, ".", true);

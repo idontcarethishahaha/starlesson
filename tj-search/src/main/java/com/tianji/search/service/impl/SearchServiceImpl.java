@@ -60,8 +60,13 @@ public class SearchServiceImpl implements ISearchService {
 
     @Override
     public List<CourseVO> queryCourseByCateId(Long cateLv2Id) {
-        return queryTopNByCategoryIdLv2sAndFree(
-                CollUtils.singletonList(cateLv2Id), null, PUBLISH_TIME, false, 10);
+        try {
+            return queryTopNByCategoryIdLv2sAndFree(
+                    CollUtils.singletonList(cateLv2Id), null, PUBLISH_TIME, false, 10);
+        } catch (Exception e) {
+            log.warn("queryCourseByCateId failed: {}", e.getMessage());
+            return CollUtils.emptyList();
+        }
     }
 
     @Override
@@ -119,6 +124,8 @@ public class SearchServiceImpl implements ISearchService {
         return courses;
     }
 
+    private static final String FILE_ACCESS_PREFIX = "/files/public/";
+
     private List<CourseVO> queryTopNByCategoryIdLv2sAndFree(
             List<Long> categoryIds, Boolean isFree, String sortBy, boolean isASC, int n) {
         // 1.准备Request
@@ -159,51 +166,112 @@ public class SearchServiceImpl implements ISearchService {
         for (SearchHit hit : hits) {
             // 3.1.数据转换
             CourseVO vo = JsonUtils.toBean(hit.getSourceAsString(), CourseVO.class);
-            // 3.2.获取分类id
-            teacherIds.add(Long.valueOf(vo.getTeacher()));
+            // 3.2.获取教师id
+            String teacherStr = vo.getTeacher();
+            if (StringUtils.isNotBlank(teacherStr)) {
+                try {
+                    teacherIds.add(Long.valueOf(teacherStr));
+                } catch (NumberFormatException e) {
+                    // teacher字段不是有效数字，忽略
+                }
+            }
             // 3.3.保存
             courses.add(vo);
         }
         teacherIds.remove(0L);
-        if (teacherIds.size() == 0) {
+        if (teacherIds.isEmpty()) {
+            // 没有有效的教师id，直接返回
+            for (CourseVO c : courses) {
+                c.setTeacher("匿名");
+            }
             return courses;
         }
         // 4.查询教师
         List<UserDTO> teachers = userClient.queryUserByIds(teacherIds);
-        AssertUtils.isNotEmpty(teachers, SearchErrorInfo.TEACHER_NOT_EXISTS);
-        Map<String, String> tMap = teachers.stream()
-                .collect(Collectors.toMap(t -> t.getId().toString(), UserDTO::getName));
-        for (CourseVO c : courses) {
-            c.setTeacher(tMap.getOrDefault(c.getTeacher(), "匿名"));
+        if (CollUtils.isEmpty(teachers)) {
+            // 用户服务不可用或无匹配教师，使用默认值
+            for (CourseVO c : courses) {
+                c.setTeacher("匿名");
+            }
+            return courses;
         }
+        Map<Long, String> tMap = teachers.stream()
+                .collect(Collectors.toMap(UserDTO::getId, UserDTO::getName));
+        for (CourseVO c : courses) {
+            String teacherStr = c.getTeacher();
+            if (StringUtils.isNotBlank(teacherStr)) {
+                try {
+                    c.setTeacher(tMap.getOrDefault(Long.valueOf(teacherStr), "匿名"));
+                } catch (NumberFormatException e) {
+                    c.setTeacher("匿名");
+                }
+            } else {
+                c.setTeacher("匿名");
+            }
+        }
+        normalizeCoverUrls(courses);
         return courses;
+    }
+
+    /**
+     * 如果 coverUrl 仅存储文件名（而非完整 URL），则补上网关访问前缀。
+     */
+    private void normalizeCoverUrls(List<CourseVO> courses) {
+        if (CollUtils.isEmpty(courses)) {
+            return;
+        }
+        for (CourseVO c : courses) {
+            String url = c.getCoverUrl();
+            if (StringUtils.isBlank(url)) {
+                continue;
+            }
+            String trimmed = url.trim();
+            if (trimmed.startsWith("http://") || trimmed.startsWith("https://")
+                    || trimmed.startsWith("/")) {
+                continue;
+            }
+            c.setCoverUrl(FILE_ACCESS_PREFIX + trimmed);
+        }
     }
 
     @Override
     public PageDTO<CourseVO> queryCoursesForPortal(CoursePageQuery query) {
-        // 1.搜索数据
-        SearchResponse response = searchForResponse(query, CourseVO.EXCLUDE_FIELDS);
-        // 2.解析响应
-        PageDTO<Course> result = handleSearchResponse(response, query.getPageSize());
-        // 3.处理VO
-        List<Course> list = result.getList();
-        if (CollUtils.isEmpty(list)) {
-            return PageDTO.empty(result.getTotal(), result.getPages());
+        try {
+            // 1.搜索数据
+            SearchResponse response = searchForResponse(query, CourseVO.EXCLUDE_FIELDS);
+            // 2.解析响应
+            PageDTO<Course> result = handleSearchResponse(response, query.getPageSize());
+            // 3.处理VO
+            List<Course> list = result.getList();
+            if (CollUtils.isEmpty(list)) {
+                return PageDTO.empty(result.getTotal(), result.getPages());
+            }
+            // 3.1.查询教师信息
+            Set<Long> teacherIds = list.stream()
+                    .map(Course::getTeacher)
+                    .filter(id -> id != null && id > 0)
+                    .collect(Collectors.toSet());
+            Map<Long, String> teacherMap = new HashMap<>();
+            if (!teacherIds.isEmpty()) {
+                List<UserDTO> teachers = userClient.queryUserByIds(teacherIds);
+                if (CollUtils.isNotEmpty(teachers)) {
+                    teacherMap = teachers.stream()
+                            .collect(Collectors.toMap(UserDTO::getId, UserDTO::getName));
+                }
+            }
+            // 3.2.转换VO
+            List<CourseVO> vos = new ArrayList<>(list.size());
+            for (Course c : list) {
+                CourseVO vo = BeanUtils.toBean(c, CourseVO.class);
+                vo.setTeacher(teacherMap.getOrDefault(c.getTeacher(), "未知"));
+                vos.add(vo);
+            }
+            normalizeCoverUrls(vos);
+            return new PageDTO<>(result.getTotal(), result.getPages(), vos);
+        } catch (Exception e) {
+            log.warn("queryCoursesForPortal failed: {}", e.getMessage());
+            return PageDTO.empty(0L, 0L);
         }
-        // 3.1.查询教师信息
-        List<Long> teacherIds = list.stream().map(Course::getTeacher).collect(Collectors.toList());
-        List<UserDTO> teachers = userClient.queryUserByIds(teacherIds);
-        AssertUtils.isNotEmpty(teachers, SearchErrorInfo.TEACHER_NOT_EXISTS);
-        Map<Long, String> teacherMap = teachers.stream()
-                .collect(Collectors.toMap(UserDTO::getId, UserDTO::getName));
-        // 3.2.转换VO
-        List<CourseVO> vos = new ArrayList<>(list.size());
-        for (Course c : list) {
-            CourseVO vo = BeanUtils.toBean(c, CourseVO.class);
-            vo.setTeacher(teacherMap.getOrDefault(c.getTeacher(), "未知"));
-            vos.add(vo);
-        }
-        return new PageDTO<>(result.getTotal(), result.getPages(), vos);
     }
 
     @Override

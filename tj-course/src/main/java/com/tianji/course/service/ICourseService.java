@@ -120,5 +120,11 @@ public interface ICourseService extends IService<Course> {
      */
     List<Long> queryCourseIdByName(String name);
 
+    /**
+     * 查询所有已上架课程的id列表
+     * @return 已上架课程id列表
+     */
+    List<Long> queryOnlineCourseIds();
+
     CourseAndSectionVO queryCourseAndCatalogById(Long courseId);
 }

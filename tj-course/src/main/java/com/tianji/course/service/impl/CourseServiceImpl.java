@@ -238,6 +238,17 @@ public class CourseServiceImpl extends ServiceImpl<CourseMapper, Course> impleme
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public List<Long> queryOnlineCourseIds() {
+        LambdaQueryWrapper<Course> queryWrapper =
+                Wrappers.lambdaQuery(Course.class)
+                .eq(Course::getStatus, 2);
+        List<Course> courses = baseMapper.selectList(queryWrapper);
+        return courses.stream()
+                .map(Course::getId)
+                .collect(Collectors.toList());
+    }
+
 
     @Override
     public CourseAndSectionVO queryCourseAndCatalogById(Long courseId) {

@@ -47,4 +47,21 @@ public interface CourseRepository{
     void saveAll(List<Course> list);
 
     void deleteByIds(List<Long> courseIds);
+
+    /**
+     * 检查索引是否存在且健康
+     * @return true 表示索引可用
+     */
+    boolean isIndexHealthy();
+
+    /**
+     * 删除并重建索引
+     */
+    void rebuildIndex();
+
+    /**
+     * 获取索引中的文档数量
+     * @return 文档数，失败返回 -1
+     */
+    long getDocCount();
 }

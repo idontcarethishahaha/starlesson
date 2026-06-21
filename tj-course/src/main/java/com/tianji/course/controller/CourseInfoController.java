@@ -100,4 +100,10 @@ public class CourseInfoController {
     public List<Long> queryCoursesIdByName(@RequestParam("name") String name) {
         return courseService.queryCourseIdByName(name);
     }
+
+    @GetMapping("/onlineIds")
+    @Operation(summary = "查询所有已上架课程的id列表")
+    public List<Long> queryOnlineCourseIds() {
+        return courseService.queryOnlineCourseIds();
+    }
 }

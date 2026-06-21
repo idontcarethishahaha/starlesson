@@ -56,6 +56,9 @@ public interface CourseClient {
     @GetMapping("/courses/simpleInfo/list")
     List<CourseSimpleInfoDTO> getSimpleInfoList(@RequestParam("ids") Iterable<Long> ids);
 
+    @GetMapping("/course/onlineIds")
+    List<Long> queryOnlineCourseIds();
+
     /**
      * 根据课程id，获取课程、目录、教师信息
      *

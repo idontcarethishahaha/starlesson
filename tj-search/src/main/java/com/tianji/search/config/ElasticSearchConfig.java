@@ -16,8 +16,9 @@ public class ElasticSearchConfig {
     private ElasticsearchProperties elasticsearchProperties;
 
     @Bean
-    public RestHighLevelClient restClient() {
+    public RestHighLevelClient restHighLevelClient() {
         String uri = CollUtil.getFirst(this.elasticsearchProperties.getUris());
-        return new RestHighLevelClient(RestClient.builder(HttpHost.create(uri)));
+        return new RestHighLevelClient(
+                org.elasticsearch.client.RestClient.builder(HttpHost.create(uri)));
     }
 }

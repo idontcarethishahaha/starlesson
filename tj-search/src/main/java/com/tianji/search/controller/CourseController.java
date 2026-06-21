@@ -3,6 +3,7 @@ package com.tianji.search.controller;
 import com.tianji.common.domain.dto.PageDTO;
 import com.tianji.search.domain.query.CoursePageQuery;
 import com.tianji.search.domain.vo.CourseVO;
+import com.tianji.search.init.CourseIndexInitRunner;
 import com.tianji.search.service.ICourseService;
 import com.tianji.search.service.ISearchService;
 import io.swagger.v3.oas.annotations.Hidden;
@@ -21,6 +22,7 @@ public class CourseController {
 
     private final ISearchService searchService;
     private final ICourseService courseService;
+    private final CourseIndexInitRunner courseIndexInitRunner;
 
     @Operation(summary = "用户端课程搜索接口")
     @GetMapping("/portal")
@@ -41,6 +43,12 @@ public class CourseController {
         for (Long courseId : courseIds) {
             courseService.handleCourseUp(courseId);
         }
+    }
+
+    @Operation(summary = "全量同步课程到ES索引（用于索引损坏/缺失时手动触发）")
+    @PostMapping("/sync")
+    public void syncAllCourses() {
+        courseIndexInitRunner.doFullSync();
     }
 
     @Operation(summary = "处理指定课程下架失败的问题")
