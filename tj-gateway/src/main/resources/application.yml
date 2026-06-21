@@ -10,6 +10,10 @@ spring:
   cloud:
     gateway:
       routes:
+        - id: files
+          uri: lb://media-service
+          predicates:
+            - Path=/files/**
         - id: ms
           uri: lb://media-service
           predicates:
