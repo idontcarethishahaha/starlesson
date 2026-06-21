@@ -16,6 +16,7 @@ spring:
       discovery:
         namespace: star-lesson-dev
         group: sl-group
+        ip: 192.168.29.1
   config:
     import:
       - optional:nacos:${spring.application.name}.yaml
@@ -57,6 +58,10 @@ tj:
     resource:
       enable: true
       excludeLoginPaths:
+        - /chat/**
+        - /session/**
+        - /file/**
+        - /knowledge/**
   mq:
     listener:
       retry:

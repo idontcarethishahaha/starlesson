@@ -25,6 +25,7 @@ tj:
         - /medias/signature/play
         - /files/**
         - /img-tx/**
+        - /files/public/**
   jdbc:
     database: tj_media
   platform:

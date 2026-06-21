@@ -137,10 +137,11 @@ const currentModeName = ref(API_CONFIG.normal.name);
 const fetchUserSessionList = async () => {
     try {
         const sessions = await getUserSessionList();
-        // tj-chat 直接返回数组，不再是 { data: [...] } 格式
-        userSessionList.value = sessions;
-        if (sessions && sessions.length > 0 && !selectedSessionId.value) {
-            selectSession(sessions[0].sessionId);
+        // tj-chat 返回数组，request.js 包装为 { code, msg, data: [...] }
+        const list = Array.isArray(sessions) ? sessions : (sessions?.data || sessions || []);
+        userSessionList.value = list;
+        if (list && list.length > 0 && !selectedSessionId.value) {
+            selectSession(list[0].sessionId);
         }
     } catch (error) {
         console.error('获取用户会话列表失败:', error);

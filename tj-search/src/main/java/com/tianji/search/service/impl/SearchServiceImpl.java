@@ -214,8 +214,12 @@ public class SearchServiceImpl implements ISearchService {
     }
 
     /**
-     * 如果 coverUrl 仅存储文件名（而非完整 URL），则补上网关访问前缀。
-     * 同时处理 /files/xxx 这类未带 public 的错误路径。
+     * 统一封面 URL 前缀，确保所有情况都指向 media-service 的公开文件接口：
+     * - http(s)://...          → 原样（第三方 CDN）
+     * - /files/public/xxx       → 原样（已经是正确格式）
+     * - /files/xxx              → /files/public/xxx
+     * - files/xxx               → /files/public/xxx
+     * - xxx.png                 → /files/public/xxx.png
      */
     private void normalizeCoverUrls(List<CourseVO> courses) {
         if (CollUtils.isEmpty(courses)) {
@@ -227,22 +231,32 @@ public class SearchServiceImpl implements ISearchService {
                 continue;
             }
             String trimmed = url.trim();
-            // 已有正确前缀或 http(s) 绝对路径，直接通过
-            if (trimmed.startsWith("http://") || trimmed.startsWith("https://")
-                    || trimmed.startsWith(FILE_ACCESS_PREFIX)) {
+            // 1) http(s) 绝对路径 → 原样
+            if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
                 continue;
             }
-            // 形如 /files/xxx.jpg → 转换为 /files/public/xxx.jpg
+            // 2) 已经是正确格式 → 原样
+            if (trimmed.startsWith(FILE_ACCESS_PREFIX)) {
+                continue;
+            }
+            // 3) /files/xxx → 提取文件名
             if (trimmed.startsWith("/files/")) {
                 String filename = trimmed.substring("/files/".length());
                 c.setCoverUrl(FILE_ACCESS_PREFIX + filename);
                 continue;
             }
-            // 相对路径（纯文件名）
+            // 4) files/xxx → 提取文件名
+            if (trimmed.startsWith("files/")) {
+                String filename = trimmed.substring("files/".length());
+                c.setCoverUrl(FILE_ACCESS_PREFIX + filename);
+                continue;
+            }
+            // 5) 纯文件名（如 a71d...png） → 补全前缀
             if (!trimmed.startsWith("/")) {
                 c.setCoverUrl(FILE_ACCESS_PREFIX + trimmed);
+                continue;
             }
-            // 其他以 / 开头但非 files 路径的，保持原样（可能走网关其他服务）
+            // 6) 其他以 / 开头但非 files 路径的 → 保持原样（可能是网关其他服务的资源）
         }
     }
 

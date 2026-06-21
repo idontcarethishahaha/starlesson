@@ -36,6 +36,13 @@ public class FileController {
         return fileService.uploadFile(file);
     }
 
+    @Operation(summary = "上传头像（文件保存在 img-tx/ 前缀下）")
+    @PostMapping("/avatar")
+    public FileDTO uploadAvatar(
+            @Parameter(description = "头像图片") @RequestParam("file") MultipartFile file) {
+        return fileService.uploadAvatar(file);
+    }
+
     @Operation(summary = "获取文件信息")
     @GetMapping("/{id:\\d+}")
     public FileDTO getFileInfo(
@@ -45,7 +52,21 @@ public class FileController {
 
     @Operation(summary = "公开访问文件（通过存储 key 读取文件流）")
     @GetMapping("/public/{key}")
+    public ResponseEntity<byte[]> getFileByKeyPublic(@PathVariable("key") String key) {
+        return getFileByKeyInternal(key);
+    }
+
+    /**
+     * 公开访问文件（无 /public/ 前缀）
+     * 网关 StripPrefix=0，直接将 /files/{key} 转发到这里
+     * 注意：key 必须包含文件扩展名（如 .jpg, .png），避免和 /{id:\d+} 冲突
+     */
+    @GetMapping("/{key:.*\\.[a-zA-Z0-9]+}")
     public ResponseEntity<byte[]> getFileByKey(@PathVariable("key") String key) {
+        return getFileByKeyInternal(key);
+    }
+
+    private ResponseEntity<byte[]> getFileByKeyInternal(String key) {
         if (StringUtils.isBlank(key)) {
             return placeholderResponse();
         }

@@ -104,10 +104,65 @@ function alertLoginMessage() {
     })
 }
 // const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
+/**
+ * 全局规范化文件访问路径：
+ * - coverUrl / icon / imgUrl / imageUrl 等图片字段
+ * 数据库中可能存储：a71d...png / img-tx/a71d...png / /img-tx/a71d...png / /files/xxx
+ * media-service 正确路径：/files/public/{key}
+ * 头像文件在 MinIO 中的位置：tj-media/img-tx/{filename}
+ */
+function normalizeFileUrl(url) {
+  if (!url || typeof url !== 'string') return url;
+  const trimmed = url.trim();
+  // 1) 已经是 http(s) 绝对路径 → 原样
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
+  // 2) 已经是 /files/public/xxx 格式 → 原样
+  if (trimmed.startsWith('/files/public/')) return trimmed;
+  // 3) /files/xxx → /files/public/xxx
+  if (trimmed.startsWith('/files/')) return '/files/public/' + trimmed.substring('/files/'.length);
+  // 4) files/xxx → /files/public/xxx
+  if (trimmed.startsWith('files/')) return '/files/public/' + trimmed.substring('files/'.length);
+  // 5) /img-tx/xxx → MinIO 完整 URL
+  if (trimmed.startsWith('/img-tx/')) {
+    return 'http://192.168.227.128:9000/tj-media' + trimmed;
+  }
+  // 6) img-tx/xxx → MinIO 完整 URL
+  if (trimmed.startsWith('img-tx/')) {
+    return 'http://192.168.227.128:9000/tj-media/' + trimmed;
+  }
+  // 7) 纯文件名（如 a71d...png） → /files/public/a71d...png
+  if (!trimmed.startsWith('/')) return '/files/public/' + trimmed;
+  // 8) 其他以 / 开头但非 files/img-tx 路径 → 保持原样（可能是网关其他服务的资源）
+  return trimmed;
+}
+function normalizeAllFileUrls(obj) {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) {
+    obj.forEach(normalizeAllFileUrls);
+    return obj;
+  }
+  const IMG_KEYS = new Set(['coverUrl', 'cover', 'icon', 'iconUrl', 'avatar', 'avatarUrl', 'imgUrl', 'imageUrl', 'userIcon', 'logo']);
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (IMG_KEYS.has(key) && typeof val === 'string') {
+      obj[key] = normalizeFileUrl(val);
+    } else if (val !== null && typeof val === 'object') {
+      normalizeAllFileUrls(val);
+    }
+  }
+  return obj;
+}
+
 instance.interceptors.response.use(
   async (response) => {
     let data = response.data;
-    
+
+    // 全局规范化所有图片 URL 字段
+    if (data && typeof data === 'object') {
+      normalizeAllFileUrls(data);
+    }
+
     if (Array.isArray(data) || (data && typeof data === 'object' && !data.code)) {
       data = {
         code: CODE.REQUEST_SUCCESS,

@@ -17,6 +17,8 @@ public interface IFileService extends IService<File> {
 
     FileDTO uploadFile(MultipartFile file);
 
+    FileDTO uploadAvatar(MultipartFile file);
+
     FileDTO getFileInfo(Long id);
 
     java.io.InputStream downloadByKey(String key);

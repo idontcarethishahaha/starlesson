@@ -50,6 +50,10 @@ public class UserSessionServiceImpl extends ServiceImpl<UserSessionMapper, UserS
     @Override
     public List<UserSession> getUserSessionList() {
         Long userId = UserContext.getUser();
+        if (userId == null) {
+            log.warn("UserSessionServiceImpl.getUserSessionList: 用户未登录，返回空列表");
+            return java.util.Collections.emptyList();
+        }
         LambdaQueryWrapper<UserSession> wrapper =  new LambdaQueryWrapper<>();
         wrapper.eq(UserSession::getUserId, userId);
         wrapper.orderByDesc(UserSession::getCreateTime);
@@ -60,9 +64,14 @@ public class UserSessionServiceImpl extends ServiceImpl<UserSessionMapper, UserS
     @Transactional
     public void deleteUserSession(Long id) {
         UserSession userSession = this.getById(id);
+        Long userId = UserContext.getUser();
+        if (userId == null) {
+            log.warn("UserSessionServiceImpl.deleteUserSession: 用户未登录");
+            return;
+        }
         List<ChatSession> list = chatSessionService.lambdaQuery()
                 .eq(ChatSession::getSessionId, userSession.getSessionId())
-                .eq(ChatSession::getUserId, UserContext.getUser()).list();
+                .eq(ChatSession::getUserId, userId).list();
         for (ChatSession chatSession : list) {
             chatSessionService.removeById(chatSession.getId());
         }

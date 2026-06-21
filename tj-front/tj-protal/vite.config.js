@@ -98,6 +98,10 @@ export default defineConfig((mode) => {
           target: 'http://localhost:10010',
           changeOrigin: true,
         },
+        '/files': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
         // ============ 静态资源代理 ============
         // /img-tx/** 路由到网关 /ms/**，再由网关转发到 media-service
         '/img-tx': {

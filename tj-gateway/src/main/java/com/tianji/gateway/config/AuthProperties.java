@@ -20,8 +20,27 @@ public class AuthProperties implements InitializingBean {
         // 添加默认不拦截的路径
         excludePath.add("/error/**");
         excludePath.add("/jwks");
-        excludePath.add("/accounts/login");
-        excludePath.add("/accounts/admin/login");
-        excludePath.add("/accounts/refresh");
+        excludePath.add("GET:/accounts/login");
+        excludePath.add("POST:/accounts/login");
+        excludePath.add("GET:/accounts/admin/login");
+        excludePath.add("POST:/accounts/admin/login");
+        excludePath.add("GET:/accounts/refresh");
+        excludePath.add("POST:/accounts/refresh");
+        // 文件访问路径
+        excludePath.add("GET:/files/**");
+        excludePath.add("POST:/files/**");
+        excludePath.add("GET:/ms/files/**");
+        excludePath.add("POST:/ms/files/**");
+        // AI聊天相关路径
+        excludePath.add("GET:/chat/**");
+        excludePath.add("POST:/chat/**");
+        excludePath.add("GET:/session/**");
+        excludePath.add("POST:/session/**");
+        excludePath.add("GET:/file/**");
+        excludePath.add("POST:/file/**");
+        excludePath.add("GET:/knowledge/**");
+        excludePath.add("POST:/knowledge/**");
+        // 头像路径
+        excludePath.add("GET:/img-tx/**");
     }
 }

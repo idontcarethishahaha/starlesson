@@ -154,7 +154,7 @@ const store = useUserStore();
 const userInfo = ref(store.getUserInfo);
 
 const env = import.meta.env.MODE || "development";
-const actions = proxy[env].host + '/ms/files';
+const actions = proxy[env].host + '/ms/files/avatar';
 const uploadHeaders = { authorization: store.getToken };
 const tabData = [
   { id: 0, name: '基本信息' },
@@ -295,7 +295,7 @@ const handleAvatarSuccess = (res, file) => {
   if (res.code == 200) {
     imageUrl.value = URL.createObjectURL(file.raw);
     user.icon = res.data.path;
-    ElMessage.success('头像上传成功');
+    ElMessage.success('头像上传成功，请点击更新信息按钮保存');
   } else {
     ElMessage.error('图片上传出错，请联系管理员');
   }

@@ -42,7 +42,7 @@
 </template>
 
 <script setup>
-import { defineProps, ref, onMounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { getAnalysisResultByCourse } from '@/api/data';
 import { ElMessage } from 'element-plus';
 

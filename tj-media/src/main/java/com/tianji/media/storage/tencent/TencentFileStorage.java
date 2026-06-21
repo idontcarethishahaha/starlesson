@@ -1,6 +1,5 @@
 package com.tianji.media.storage.tencent;
 
-import cn.hutool.core.util.StrUtil;
 import com.tianji.common.exceptions.BadRequestException;
 import com.tianji.common.exceptions.CommonException;
 import com.tianji.common.utils.AssertUtils;
@@ -36,7 +35,7 @@ public class TencentFileStorage implements IFileStorage {
     }
 
     @Override
-    public String uploadFile(String key, InputStream inputStream, long contentLength) {
+    public void uploadFile(String key, InputStream inputStream, long contentLength) {
         // 1.数据校验
         AssertUtils.isNotBlank(bucketName, BUCKET_NAME_IS_NULL);
         AssertUtils.isNotBlank(key, FILE_KEY_IS_NULL);
@@ -53,14 +52,7 @@ public class TencentFileStorage implements IFileStorage {
             // 4.异步发起上传，返回异步结果upload
             Upload upload = transferManager.upload(putObjectRequest);
             // 5.等待结果
-            UploadResult result = upload.waitForUploadResult();
-            // 6.返回信息 TODO 改变原有的返回值，返回文件访问路径，不再返回requestId
-            // return result.getRequestId();
-            // https://tianji-1259405500.cos.ap-nanjing.myqcloud.com/f00076a59de6410d8262ca48c1c64ec9.png
-            return StrUtil.format("https://{}.cos.{}.myqcloud.com/{}",
-                    this.bucketName,
-                    this.region,
-                    key);
+            upload.waitForUploadResult();
         } catch (Exception e) {
             log.error("上传文件[{}]时发生异常：", key, e);
             throw new CommonException("文件上传异常。", e);

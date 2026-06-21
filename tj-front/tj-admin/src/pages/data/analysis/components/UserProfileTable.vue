@@ -55,7 +55,7 @@
 </template>
 
 <script setup>
-import { defineProps, ref, onMounted } from 'vue';
+import {  ref, onMounted } from 'vue';
 // 图片放大弹层
 import ImageMagnify from "@/components/ImageMagnify/index.vue";
 import { getAnalysisResultByUser } from '@/api/data';

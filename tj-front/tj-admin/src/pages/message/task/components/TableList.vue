@@ -53,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue';
+import ref from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { formatTime } from "@/utils/index";
 // 空页面

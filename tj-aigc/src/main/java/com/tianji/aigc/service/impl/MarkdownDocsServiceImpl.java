@@ -105,8 +105,13 @@ public class MarkdownDocsServiceImpl extends ServiceImpl<MarkdownDocsMapper, Mar
 
     @Override
     public PageDTO<MarkdownDocs> queryMarkdownPage(PageQuery query) {
+        Long userId = UserContext.getUser();
+        if (userId == null) {
+            log.warn("MarkdownDocsServiceImpl.queryMarkdownPage: 用户未登录，返回空列表");
+            return PageDTO.empty(0L, 0L);
+        }
         Page<MarkdownDocs> page = this.lambdaQuery()
-                .eq(MarkdownDocs::getUserId, UserContext.getUser())
+                .eq(MarkdownDocs::getUserId, userId)
                 .page(query.toMpPageDefaultSortByCreateTimeDesc());
         // 清除 content 字段，避免返回过大的数据
         page.getRecords().forEach(i -> i.setContent(null));

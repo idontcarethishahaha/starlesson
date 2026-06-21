@@ -79,7 +79,7 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits, reactive } from 'vue';
+import { ref, reactive } from 'vue';
 import { ElMessage, ElDialog } from 'element-plus';
 import { createUserSession, deleteUserSession, updateUserSession } from '@/api/ai.js';
 import { Edit, Delete } from '@element-plus/icons-vue'; 

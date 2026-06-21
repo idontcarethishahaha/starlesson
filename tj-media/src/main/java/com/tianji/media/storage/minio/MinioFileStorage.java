@@ -29,7 +29,7 @@ public class MinioFileStorage implements IFileStorage {
     }
 
     @Override
-    public String uploadFile(String key, InputStream inputStream, long contentLength) {
+    public void uploadFile(String key, InputStream inputStream, long contentLength) {
         String bucketName = "tj-media";
         try {
             // 确保 bucket 存在
@@ -43,9 +43,6 @@ public class MinioFileStorage implements IFileStorage {
                             .stream(inputStream, contentLength, -1)
                             .build()
             );
-
-            // 生成访问 URL
-            return getFileUrl(bucketName, key);
         } catch (Exception e) {
             log.error("上传文件失败: {}", key, e);
             throw new CommonException("上传文件失败", e);

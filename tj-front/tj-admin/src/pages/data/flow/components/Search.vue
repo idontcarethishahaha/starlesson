@@ -26,7 +26,7 @@
 </template>
 
 <script setup>
-import { ref, defineProps, defineEmits } from 'vue';
+import ref from 'vue';
 
 // 定义 props 和 emits
 const props = defineProps({

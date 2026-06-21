@@ -82,8 +82,15 @@ const getClassListData = async (id) => {
   await getClassList(id)
     .then((res) => {
       if (res.code == 200) {
-        classList.value = res.data;
-        teacherInfo.value = res.data[0];
+        const data = res.data;
+        if (Array.isArray(data)) {
+          data.forEach(item => {
+            item.coverUrl = normalizeCoverUrl(item.coverUrl);
+            item.icon = normalizeCoverUrl(item.icon);
+          });
+        }
+        classList.value = data;
+        teacherInfo.value = data[0];
       } else {
         ElMessage({
           message: res.msg,
@@ -97,6 +104,37 @@ const getClassListData = async (id) => {
         type: "error",
       });
     });
+};
+
+/**
+ * 规范化封面 URL，确保指向正确的媒体服务接口
+ * - http(s)://...          → 原样
+ * - /files/public/xxx       → 原样
+ * - /files/xxx              → /files/public/xxx
+ * - files/xxx               → /files/public/xxx
+ * - xxx.png                 → /files/public/xxx.png
+ */
+const normalizeCoverUrl = (url) => {
+  if (!url || typeof url !== 'string') {
+    return '';
+  }
+  const trimmed = url.trim();
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/files/public/')) {
+    return trimmed;
+  }
+  if (trimmed.startsWith('/files/')) {
+    return '/files/public/' + trimmed.substring('/files/'.length);
+  }
+  if (trimmed.startsWith('files/')) {
+    return '/files/public/' + trimmed.substring('files/'.length);
+  }
+  if (!trimmed.startsWith('/')) {
+    return '/files/public/' + trimmed;
+  }
+  return trimmed;
 };
 </script>
 <style lang="scss" scoped>

@@ -39,10 +39,20 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements IF
 
     @Override
     public FileDTO uploadFile(MultipartFile file) {
+        return doUpload(file, null);
+    }
+
+    @Override
+    public FileDTO uploadAvatar(MultipartFile file) {
+        return doUpload(file, "img-tx/");
+    }
+
+    private FileDTO doUpload(MultipartFile file, String prefix) {
         // 1.获取文件名称
         String originalFilename = file.getOriginalFilename();
-        // 2.生成新文件名
+        // 2.生成新文件名（可带前缀，如 img-tx/）
         String filename = generateNewFileName(originalFilename);
+        String key = (prefix != null ? prefix : "") + filename;
         // 3.获取文件流
         InputStream inputStream;
         try {
@@ -51,28 +61,25 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements IF
             throw new CommonException("文件读取异常", e);
         }
         // 4.上传文件
-        String requestId = fileStorage.uploadFile(filename, inputStream, file.getSize());
+        fileStorage.uploadFile(key, inputStream, file.getSize());
         // 5.写入数据库
-        File fileInfo = null;
+        File fileInfo;
         try {
             fileInfo = new File();
             fileInfo.setFilename(originalFilename);
-            fileInfo.setKey(filename);
+            fileInfo.setKey(key);
             fileInfo.setStatus(FileStatus.UPLOADED);
-            // TODO 不再保存请求id
-            // fileInfo.setRequestId(requestId);
             fileInfo.setPlatform(properties.getFile());
             save(fileInfo);
         } catch (Exception e) {
             log.error("文件信息保存异常", e);
-            fileStorage.deleteFile(filename);
+            fileStorage.deleteFile(key);
             throw new DbException(FileErrorInfo.Msg.FILE_UPLOAD_ERROR);
         }
-        // 6.返回
+        // 6.返回（path = 可通过 /files/public/{path} 访问的短路径）
         FileDTO fileDTO = new FileDTO();
         fileDTO.setId(fileInfo.getId());
-        // fileDTO.setPath(fileInfo.getPlatform().getPath() + filename);
-        fileDTO.setPath(requestId);
+        fileDTO.setPath(key);
         fileDTO.setFilename(originalFilename);
         return fileDTO;
     }
@@ -95,9 +102,8 @@ public class FileServiceImpl extends ServiceImpl<FileMapper, File> implements IF
     }
 
     private String generateNewFileName(String originalFilename) {
-        // 1.获取后缀
-        String suffix = StringUtils.subAfter(originalFilename, ".", true);
-        // 2.生成新文件名
-        return UUID.randomUUID().toString(true) + "." + suffix;
+        int lastDotIndex = originalFilename.lastIndexOf('.');
+        String suffix = lastDotIndex > 0 ? originalFilename.substring(lastDotIndex) : "";
+        return UUID.randomUUID().toString(true) + suffix;
     }
 }

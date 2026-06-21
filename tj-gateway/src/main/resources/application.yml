@@ -2,6 +2,30 @@ server:
   port: 10010  #端口
   tomcat:
     uri-encoding: UTF-8   #服务编码
+tj:
+  auth:
+    excludePath:
+      - /error/**
+      - /jwks
+      - GET:/accounts/login
+      - POST:/accounts/login
+      - GET:/accounts/admin/login
+      - POST:/accounts/admin/login
+      - GET:/accounts/refresh
+      - POST:/accounts/refresh
+      - GET:/files/**
+      - POST:/files/**
+      - GET:/ms/files/**
+      - POST:/ms/files/**
+      - GET:/chat/**
+      - POST:/chat/**
+      - GET:/session/**
+      - POST:/session/**
+      - GET:/file/**
+      - POST:/file/**
+      - GET:/knowledge/**
+      - POST:/knowledge/**
+      - GET:/img-tx/**
 spring:
   profiles:
     active: local
@@ -14,6 +38,8 @@ spring:
           uri: lb://media-service
           predicates:
             - Path=/files/**
+          filters:
+            - StripPrefix=0
         - id: ms
           uri: lb://media-service
           predicates:
@@ -80,6 +106,8 @@ spring:
           uri: lb://chat-service
           predicates:
             - Path=/chat/**,/file/**,/session/**
+          filters:
+            - StripPrefix=0
       default-filters:
         - StripPrefix=1
       globalcors: # 全局的跨域处理
