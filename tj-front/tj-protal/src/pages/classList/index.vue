@@ -76,11 +76,17 @@ const getClassCategoryData = async () => {
       if (res.code == 200) {
         classCategorys.value = res.data;
       } else {
-        ElMessage(res.meg);
+        ElMessage({
+          message: res.msg,
+          type: "error",
+        });
       }
     })
     .catch(() => {
-      ElMessage("分类请求出错！");
+      ElMessage({
+        message: "分类请求出错！",
+        type: "error",
+      });
     });
 };
 // 精品公开课接口
@@ -90,39 +96,57 @@ const getFreeClassListData = async () => {
       if (res.code == 200) {
         freeClassData.value = res.data;
       } else {
-        ElMessage(res.meg);
+        ElMessage({
+          message: res.msg,
+          type: "error",
+        });
       }
     })
     .catch(() => {
-      ElMessage("分类请求出错！");
+      ElMessage({
+        message: "公开课获取失败！",
+        type: "error",
+      });
     });
 };
 // 新课推荐
 const getNewClassListData = async () => {
-  await getClassCategorys()
+  await getRecommendClassList('new')
     .then((res) => {
       if (res.code == 200) {
-        classCategorys.value = res.data;
+        newClassData.value = res.data;
       } else {
-        ElMessage(res.meg);
+        ElMessage({
+          message: res.msg,
+          type: "error",
+        });
       }
     })
     .catch(() => {
-      ElMessage("分类请求出错！");
+      ElMessage({
+        message: "新课推荐获取失败！",
+        type: "error",
+      });
     });
 };
 // 精品好课
 const getGoodClassListData = async () => {
-  await getClassCategorys()
+  await getRecommendClassList('best')
     .then((res) => {
       if (res.code == 200) {
-        classCategorys.value = res.data;
+        goodClassData.value = res.data;
       } else {
-        ElMessage(res.meg);
+        ElMessage({
+          message: res.msg,
+          type: "error",
+        });
       }
     })
     .catch(() => {
-      ElMessage("分类请求出错！");
+      ElMessage({
+        message: "精品好课获取失败！",
+        type: "error",
+      });
     });
 };
 </script>

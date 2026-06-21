@@ -1,6 +1,7 @@
 package com.tianji.auth.controller;
 
 import cn.hutool.core.codec.Base64;
+import com.tianji.common.annotations.NoWrapper;
 import io.swagger.v3.oas.annotations.Hidden;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -21,6 +22,7 @@ public class JwkController {
         this.keyPair = keyPair;
     }
 
+    @NoWrapper
     @GetMapping
     public String getJwk(){
         // TODO 可以加入clientId和clientSecret校验

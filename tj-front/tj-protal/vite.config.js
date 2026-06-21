@@ -70,6 +70,14 @@ export default defineConfig((mode) => {
           target: 'http://localhost:10010',
           changeOrigin: true,
         },
+        '/ss': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
+        '/ls': {
+          target: 'http://localhost:10010',
+          changeOrigin: true,
+        },
         '/ts': {
           target: 'http://localhost:10010',
           changeOrigin: true,

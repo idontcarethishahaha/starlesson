@@ -18,35 +18,47 @@ let isLogin = true
 // let refreshing = ref(false)
 
 const instance = axios.create({
-  baseURL:  host, // 'http://172.17.2.134/api-test',
+  baseURL:  host,
   timeout: 30000,
   withCredentials: true,
+  headers: {
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+  },
 });
 
 instance.interceptors.request.use((config) => {
   const TOKEN = sessionStorage.getItem('token');
- // 从sessionStorage获取并解析用户信息
- const userInfoStr = sessionStorage.getItem('userInfo');
- const userInfo = userInfoStr ? JSON.parse(userInfoStr) : {};
-  
-   // 安全地获取用户信息
- const userName = userInfo.name || '';
- const userGender = userInfo.gender === 0 ? '男' : (userInfo.gender === 1 ? '女' : '');
- const userProvince = userInfo.province || '';
- const userCity = userInfo.city || '';
- // 对可能包含非ASCII字符的值进行编码
- const encodedUserName = encodeURIComponent(userName);
- const encodedUserGender = encodeURIComponent(userGender);
- const encodedUserProvince = encodeURIComponent(userProvince);
- const encodedUserCity = encodeURIComponent(userCity);
-  config.headers = {
-    "Content-Type": "application/json",
-    "authorization": TOKEN,
-    "X-User-Name": encodedUserName,
-    "X-User-Gender": encodedUserGender,
-    "X-User-Province": encodedUserProvince,
-    "X-User-City": encodedUserCity,
+  // 从sessionStorage获取并解析用户信息
+  const userInfoStr = sessionStorage.getItem('userInfo');
+  const userInfo = userInfoStr ? JSON.parse(userInfoStr) : {};
+
+  // 安全地获取用户信息
+  const userName = userInfo.name || '';
+  const userGender = userInfo.gender === 0 ? '男' : (userInfo.gender === 1 ? '女' : '');
+  const userProvince = userInfo.province || '';
+  const userCity = userInfo.city || '';
+  // 对可能包含非ASCII字符的值进行编码
+  const encodedUserName = encodeURIComponent(userName);
+  const encodedUserGender = encodeURIComponent(userGender);
+  const encodedUserProvince = encodeURIComponent(userProvince);
+  const encodedUserCity = encodeURIComponent(userCity);
+
+  // 确保 headers 对象存在
+  if (!config.headers) config.headers = {};
+
+  // 有请求体时才设置 Content-Type，避免 GET 请求也带 application/json
+  if (config.data !== undefined && !config.headers['Content-Type']) {
+    config.headers['Content-Type'] = 'application/json';
   }
+  if (TOKEN) {
+    config.headers['Authorization'] = TOKEN;
+  }
+  config.headers['X-User-Name'] = encodedUserName;
+  config.headers['X-User-Gender'] = encodedUserGender;
+  config.headers['X-User-Province'] = encodedUserProvince;
+  config.headers['X-User-City'] = encodedUserCity;
+
   return config
 });
 
@@ -94,26 +106,27 @@ function alertLoginMessage() {
 // const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
 instance.interceptors.response.use(
   async (response) => {
-    // 1.获取业务状态码
-    let code = response.data.code;
-    // 2.业务状态码为200，直接返回
-    if (code === CODE.REQUEST_SUCCESS) {
-      return response.data;
+    let data = response.data;
+    
+    if (Array.isArray(data) || (data && typeof data === 'object' && !data.code)) {
+      data = {
+        code: CODE.REQUEST_SUCCESS,
+        msg: 'OK',
+        data: data,
+      };
     }
 
-    // 3.业务状态码为401，代表未登录
+    let code = data.code;
+    if (code === CODE.REQUEST_SUCCESS) {
+      return data;
+    }
+
     if (code === 401 && isLogin) {
       isLogin = false;
       alertLoginMessage();
     }
 
-    return response.data;
-/*    // 4.业务状态码为其它，返回异常
-    ElMessage({
-      message: response.data.msg,
-      type: 'error'
-    });
-    throw new Error(response.data.msg);*/
+    return data;
   },
    async (err) => {
     console.log(err)

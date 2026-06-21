@@ -117,7 +117,7 @@ const getClassCategoryData = async () => {
         dataCache.setCourseClassDataes(res.data)
       } else {
         ElMessage({
-          message: res.msg,
+          message: res.msg || "分类数据加载失败！",
           type: "error",
         });
       }
@@ -142,14 +142,14 @@ const getFreeClassListData = async () => {
         freeClassData.value = res.data;
       } else {
         ElMessage({
-          message: res.msg,
+          message: res.msg || "公开课数据加载失败！",
           type: "error",
         });
       }
     })
     .catch(() => {
       ElMessage({
-        message: "分类请求出错！",
+        message: "公开课请求出错！",
         type: "error",
       });
     });
@@ -161,11 +161,17 @@ const getGoodClassListData = async () => {
       if (res.code === 200) {
         goodClassData.value = res.data;
       } else {
-        ElMessage(res.meg);
+        ElMessage({
+          message: res.msg || "精品好课数据加载失败！",
+          type: "error",
+        });
       }
     })
     .catch(() => {
-      ElMessage("分类请求出错！");
+      ElMessage({
+        message: "精品好课获取失败！",
+        type: "error",
+      });
     });
 };
 // 新课推荐
@@ -175,12 +181,15 @@ const getNewClassListData = async () => {
       if (res.code === 200) {
         newClassData.value = res.data;
       } else {
-        ElMessage(res.meg);
+        ElMessage({
+          message: res.msg || "新课推荐数据加载失败！",
+          type: "error",
+        });
       }
     })
     .catch(() => {
       ElMessage({
-        message: "分类请求出错！",
+        message: "新课推荐请求出错！",
         type: "error",
       });
     });

@@ -15,6 +15,7 @@ import com.tianji.search.domain.vo.CourseVO;
 import com.tianji.search.repository.CourseRepository;
 import com.tianji.search.service.IInterestsService;
 import com.tianji.search.service.ISearchService;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
@@ -38,6 +39,7 @@ import java.util.stream.Collectors;
 
 import static com.tianji.search.repository.CourseRepository.PUBLISH_TIME;
 
+@Slf4j
 @Service
 public class SearchServiceImpl implements ISearchService {
 
@@ -64,18 +66,32 @@ public class SearchServiceImpl implements ISearchService {
 
     @Override
     public List<CourseVO> queryBestTopN() {
-        // 1.获取当前用户
-        return queryTopNCourseOnMarketByFree(false, CourseRepository.SOLD);
+        try {
+            return queryTopNCourseOnMarketByFree(false, CourseRepository.SOLD);
+        } catch (Exception e) {
+            log.warn("queryBestTopN failed: {}", e.getMessage());
+            return CollUtils.emptyList();
+        }
     }
 
     @Override
     public List<CourseVO> queryNewTopN() {
-        return queryTopNCourseOnMarketByFree(false, PUBLISH_TIME);
+        try {
+            return queryTopNCourseOnMarketByFree(false, PUBLISH_TIME);
+        } catch (Exception e) {
+            log.warn("queryNewTopN failed: {}", e.getMessage());
+            return CollUtils.emptyList();
+        }
     }
 
     @Override
     public List<CourseVO> queryFreeTopN() {
-        return queryTopNCourseOnMarketByFree(true, CourseRepository.SOLD);
+        try {
+            return queryTopNCourseOnMarketByFree(true, CourseRepository.SOLD);
+        } catch (Exception e) {
+            log.warn("queryFreeTopN failed: {}", e.getMessage());
+            return CollUtils.emptyList();
+        }
     }
 
     private List<CourseVO> queryTopNCourseOnMarketByFree(boolean isFree, String sortBy) {

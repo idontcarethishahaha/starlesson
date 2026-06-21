@@ -399,7 +399,7 @@ const getNotReadCount = async () => {
           notReadCount.value = res.data;
         } else {
           ElMessage({
-            message: res.msg,
+            message: res.msg || "未读消息查询失败！",
             type: "error",
           });
         }
@@ -420,7 +420,7 @@ const getLearnClassInfoHandle = async () => {
           learnClassInfo.value = res.data;
         } else {
           ElMessage({
-            message: res.msg,
+            message: res.msg || "学习状态查询失败！",
             type: "error",
           });
         }
@@ -442,7 +442,7 @@ const getCourseClassHandle = async () => {
           dataCache.setCourseClassDataes(res.data)
         } else {
           ElMessage({
-            message: res.msg,
+            message: res.msg || "分类数据加载失败！",
             type: "error",
           });
         }

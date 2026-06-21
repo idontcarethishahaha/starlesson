@@ -21,9 +21,9 @@ public class WrapperResponseBodyAdvice implements ResponseBodyAdvice<Object> {
     @Override
     public boolean supports(MethodParameter methodParameter, @NonNull Class<? extends HttpMessageConverter<?>> converterType) {
         if(methodParameter.hasMethodAnnotation(NoWrapper.class)){
-            // 如果方法上标注了NoWrapper注解，则不进行包装
             return false;
         }
+        // 只包装来自网关的请求（前端调用），内部 Feign 调用不包装
         return methodParameter.getParameterType() != R.class && WebUtils.isGatewayRequest();
     }
 

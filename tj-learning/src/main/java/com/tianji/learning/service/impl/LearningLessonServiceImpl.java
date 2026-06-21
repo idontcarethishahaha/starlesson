@@ -135,42 +135,53 @@ public class LearningLessonServiceImpl extends ServiceImpl<LearningLessonMapper,
 
     @Override
     public LearningLessonVO queryMyCurrentLesson() {
-        // 1.获取当前登录的用户
-        Long userId = UserContext.getUser();
-        // 2.查询正在学习的课程 select * from xx where user_id = #{userId} AND status = 1 order by latest_learn_time limit 1
-        LearningLesson lesson = lambdaQuery()
-                .eq(LearningLesson::getUserId, userId)
-                .eq(LearningLesson::getStatus, LessonStatus.LEARNING.getValue())
-                .orderByDesc(LearningLesson::getLatestLearnTime)
-                .last("limit 1")
-                .one();
-        if (lesson == null) {
+        try {
+            Long userId = UserContext.getUser();
+            if (userId == null) {
+                return null;
+            }
+            LearningLesson lesson = lambdaQuery()
+                    .eq(LearningLesson::getUserId, userId)
+                    .eq(LearningLesson::getStatus, LessonStatus.LEARNING.getValue())
+                    .orderByDesc(LearningLesson::getLatestLearnTime)
+                    .last("limit 1")
+                    .one();
+            if (lesson == null) {
+                return null;
+            }
+            LearningLessonVO vo = BeanUtils.copyBean(lesson, LearningLessonVO.class);
+            try {
+                CourseFullInfoDTO cInfo = courseClient.getCourseInfoById(lesson.getCourseId(), false, false);
+                if (cInfo != null) {
+                    vo.setCourseName(cInfo.getName());
+                    vo.setCourseCoverUrl(cInfo.getCoverUrl());
+                    vo.setSections(cInfo.getSectionNum());
+                }
+            } catch (Exception e) {
+                log.warn("queryMyCurrentLesson: course info query failed: {}", e.getMessage());
+            }
+            Long courseAmount = lambdaQuery()
+                    .eq(LearningLesson::getUserId, userId)
+                    .count();
+            vo.setCourseAmount(Convert.toInt(courseAmount));
+            try {
+                if (lesson.getLatestSectionId() != null) {
+                    List<CataSimpleInfoDTO> cataInfos =
+                            catalogueClient.batchQueryCatalogue(CollUtils.singletonList(lesson.getLatestSectionId()));
+                    if (!CollUtils.isEmpty(cataInfos)) {
+                        CataSimpleInfoDTO cataInfo = cataInfos.get(0);
+                        vo.setLatestSectionName(cataInfo.getName());
+                        vo.setLatestSectionIndex(cataInfo.getCIndex());
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("queryMyCurrentLesson: catalogue query failed: {}", e.getMessage());
+            }
+            return vo;
+        } catch (Exception e) {
+            log.warn("queryMyCurrentLesson failed: {}", e.getMessage());
             return null;
         }
-        // 3.拷贝PO基础属性到VO
-        LearningLessonVO vo = BeanUtils.copyBean(lesson, LearningLessonVO.class);
-        // 4.查询课程信息
-        CourseFullInfoDTO cInfo = courseClient.getCourseInfoById(lesson.getCourseId(), false, false);
-        if (cInfo == null) {
-            throw new BadRequestException("课程不存在");
-        }
-        vo.setCourseName(cInfo.getName());
-        vo.setCourseCoverUrl(cInfo.getCoverUrl());
-        vo.setSections(cInfo.getSectionNum());
-        // 5.统计课表中的课程数量 select count(1) from xxx where user_id = #{userId}
-        Long courseAmount = lambdaQuery()
-                .eq(LearningLesson::getUserId, userId)
-                .count();
-        vo.setCourseAmount(Convert.toInt(courseAmount));
-        // 6.查询小节信息
-        List<CataSimpleInfoDTO> cataInfos =
-                catalogueClient.batchQueryCatalogue(CollUtils.singletonList(lesson.getLatestSectionId()));
-        if (!CollUtils.isEmpty(cataInfos)) {
-            CataSimpleInfoDTO cataInfo = cataInfos.get(0);
-            vo.setLatestSectionName(cataInfo.getName());
-            vo.setLatestSectionIndex(cataInfo.getCIndex());
-        }
-        return vo;
     }
 
     @Override
