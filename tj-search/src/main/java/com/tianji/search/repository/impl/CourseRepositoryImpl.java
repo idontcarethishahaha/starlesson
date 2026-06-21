@@ -1,30 +1,21 @@
 package com.tianji.search.repository.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tianji.search.domain.po.Course;
 import com.tianji.search.repository.CourseRepository;
 import com.tianji.common.exceptions.CommonException;
 import com.tianji.common.utils.JsonUtils;
 import com.tianji.common.utils.StringUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.elasticsearch.action.bulk.BulkItemResponse;
-import org.elasticsearch.action.bulk.BulkRequest;
-import org.elasticsearch.action.bulk.BulkResponse;
-import org.elasticsearch.action.delete.DeleteRequest;
-import org.elasticsearch.action.get.GetRequest;
-import org.elasticsearch.action.get.GetResponse;
-import org.elasticsearch.action.index.IndexRequest;
-import org.elasticsearch.action.update.UpdateRequest;
+import org.apache.http.entity.ContentType;
+import org.apache.http.nio.entity.NStringEntity;
+import org.apache.http.util.EntityUtils;
 import org.elasticsearch.client.Request;
-import org.elasticsearch.client.RequestOptions;
 import org.elasticsearch.client.Response;
+import org.elasticsearch.client.RestClient;
 import org.elasticsearch.client.RestHighLevelClient;
-import org.elasticsearch.common.xcontent.XContentType;
-import org.elasticsearch.rest.RestStatus;
-import org.elasticsearch.script.Script;
-import org.elasticsearch.script.ScriptType;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,9 +26,10 @@ import static com.tianji.search.constants.SearchErrorInfo.*;
 @Slf4j
 @Component
 public class CourseRepositoryImpl implements CourseRepository {
-  
+
     private final RestHighLevelClient restHighLevelClient;
-    private final org.elasticsearch.client.RestClient restClient;
+    private final RestClient restClient;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     public CourseRepositoryImpl(RestHighLevelClient restHighLevelClient) {
         this.restHighLevelClient = restHighLevelClient;
@@ -46,11 +38,18 @@ public class CourseRepositoryImpl implements CourseRepository {
 
     @Override
     public void save(Course course) {
-        IndexRequest request = new IndexRequest(INDEX_NAME)
-                .id(course.getId().toString())
-                .source(JsonUtils.toJsonStr(course), XContentType.JSON);
         try {
-            restHighLevelClient.index(request, RequestOptions.DEFAULT);
+            String endpoint = "/" + INDEX_NAME + "/_doc/" + course.getId();
+            Request request = new Request("PUT", endpoint);
+            request.setEntity(new NStringEntity(JsonUtils.toJsonStr(course), ContentType.APPLICATION_JSON));
+            Response response = restClient.performRequest(request);
+            int status = response.getStatusLine().getStatusCode();
+            if (status >= 300) {
+                String body = EntityUtils.toString(response.getEntity());
+                throw new CommonException(SAVE_COURSE_ERROR, new RuntimeException("保存课程失败，ES返回：" + body));
+            }
+        } catch (CommonException ce) {
+            throw ce;
         } catch (Exception e) {
             throw new CommonException(SAVE_COURSE_ERROR, e);
         }
@@ -59,7 +58,14 @@ public class CourseRepositoryImpl implements CourseRepository {
     @Override
     public void deleteById(Long courseId) {
         try {
-            restHighLevelClient.delete(new DeleteRequest(INDEX_NAME, courseId.toString()), RequestOptions.DEFAULT);
+            String endpoint = "/" + INDEX_NAME + "/_doc/" + courseId;
+            Request request = new Request("DELETE", endpoint);
+            Response response = restClient.performRequest(request);
+            int status = response.getStatusLine().getStatusCode();
+            if (status >= 300) {
+                String body = EntityUtils.toString(response.getEntity());
+                log.warn("删除课程[{}]失败: {}", courseId, body);
+            }
         } catch (Exception e) {
             throw new CommonException(SAVE_COURSE_ERROR, e);
         }
@@ -67,28 +73,72 @@ public class CourseRepositoryImpl implements CourseRepository {
 
     @Override
     public Optional<Course> findById(Long courseId) {
-        GetResponse response = null;
         try {
-            response = restHighLevelClient.get(new GetRequest(INDEX_NAME, courseId.toString()), RequestOptions.DEFAULT);
-        } catch (IOException e) {
-            throw new CommonException(QUERY_COURSE_ERROR, e);
-        }
-        String source = response.getSourceAsString();
-        if (StringUtils.isBlank(source)) {
+            String endpoint = "/" + INDEX_NAME + "/_doc/" + courseId;
+            Request request = new Request("GET", endpoint);
+            Response response = restClient.performRequest(request);
+            int status = response.getStatusLine().getStatusCode();
+            if (status != 200) {
+                return Optional.empty();
+            }
+            String body = EntityUtils.toString(response.getEntity());
+            // 解析 {"_source": {...}}
+            if (body == null || !body.contains("_source")) {
+                return Optional.empty();
+            }
+            // 简单解析：找到 "_source" 后面的 JSON 对象
+            int sourceStart = body.indexOf("\"_source\":");
+            if (sourceStart < 0) return Optional.empty();
+            // 找到第一个 { 在 _source 后
+            int braceStart = body.indexOf("{", sourceStart);
+            if (braceStart < 0) return Optional.empty();
+            // 配对找到对应的 }
+            int depth = 0;
+            int braceEnd = braceStart;
+            boolean inString = false;
+            boolean escaped = false;
+            for (int i = braceStart; i < body.length(); i++) {
+                char c = body.charAt(i);
+                if (escaped) { escaped = false; continue; }
+                if (c == '\\') { escaped = true; continue; }
+                if (c == '"') { inString = !inString; continue; }
+                if (!inString) {
+                    if (c == '{') depth++;
+                    else if (c == '}') {
+                        depth--;
+                        if (depth == 0) { braceEnd = i; break; }
+                    }
+                }
+            }
+            String sourceJson = body.substring(braceStart, braceEnd + 1);
+            return Optional.ofNullable(JsonUtils.toBean(sourceJson, Course.class));
+        } catch (Exception e) {
+            log.warn("查询课程[{}]失败: {}", courseId, e.getMessage());
             return Optional.empty();
         }
-        return Optional.of(JsonUtils.toBean(source, Course.class));
     }
 
     @Override
     public void updateById(Long courseId, Object... sources) {
-        // 1.创建Request
-        UpdateRequest request = new UpdateRequest(INDEX_NAME, courseId.toString());
-        // 2.更新字段
-        request.doc(sources);
-        // 3.发送请求
+        if (sources == null || sources.length == 0 || sources.length % 2 != 0) {
+            throw new CommonException(SAVE_COURSE_ERROR, new RuntimeException("更新参数必须成对"));
+        }
         try {
-            restHighLevelClient.update(request, RequestOptions.DEFAULT);
+            Map<String, Object> doc = new HashMap<>();
+            for (int i = 0; i < sources.length; i += 2) {
+                doc.put(String.valueOf(sources[i]), sources[i + 1]);
+            }
+            Map<String, Object> body = new HashMap<>();
+            body.put("doc", doc);
+            String endpoint = "/" + INDEX_NAME + "/_update/" + courseId;
+            Request request = new Request("POST", endpoint);
+            request.setEntity(new NStringEntity(JsonUtils.toJsonStr(body), ContentType.APPLICATION_JSON));
+            Response response = restClient.performRequest(request);
+            int status = response.getStatusLine().getStatusCode();
+            if (status >= 300) {
+                String respBody = EntityUtils.toString(response.getEntity());
+                log.warn("更新课程[{}]失败: {}", courseId, respBody);
+            }
         } catch (Exception e) {
             throw new CommonException(UPDATE_COURSE_STATUS_ERROR, e);
         }
@@ -96,16 +146,19 @@ public class CourseRepositoryImpl implements CourseRepository {
 
     @Override
     public void increment(Long courseId, String field, int amount) {
-        // 1.创建Request
-        UpdateRequest request = new UpdateRequest(INDEX_NAME, courseId.toString());
-        // 2.更新字段
-        String code = "ctx._source." + field + " += params.count";
-        Map<String, Object> params = new HashMap<>();
-        params.put("count", amount);
-        request.script(new Script(ScriptType.INLINE, Script.DEFAULT_SCRIPT_LANG, code, params));
-        // 3.发送请求
         try {
-            restHighLevelClient.update(request, RequestOptions.DEFAULT);
+            Map<String, Object> params = new HashMap<>();
+            params.put("count", amount);
+            Map<String, Object> script = new HashMap<>();
+            script.put("source", "ctx._source." + field + " += params.count");
+            script.put("lang", "painless");
+            script.put("params", params);
+            Map<String, Object> body = new HashMap<>();
+            body.put("script", script);
+            String endpoint = "/" + INDEX_NAME + "/_update/" + courseId;
+            Request request = new Request("POST", endpoint);
+            request.setEntity(new NStringEntity(JsonUtils.toJsonStr(body), ContentType.APPLICATION_JSON));
+            restClient.performRequest(request);
         } catch (Exception e) {
             throw new CommonException(UPDATE_COURSE_STATUS_ERROR, e);
         }
@@ -113,22 +166,33 @@ public class CourseRepositoryImpl implements CourseRepository {
 
     @Override
     public void incrementSold(List<Long> courseIds, int amount) {
-        // 1.bulk请求
-        BulkRequest bulkRequest = new BulkRequest(INDEX_NAME);
-
-        for (Long courseId : courseIds) {
-            // 2.创建Request
-            UpdateRequest request = new UpdateRequest(INDEX_NAME, courseId.toString());
-            // 3.更新字段
-            Map<String, Object> params = new HashMap<>();
-            params.put(INCREMENT_SOLD_SCRIPT_PARAM, amount);
-            request.script(new Script(ScriptType.STORED, null, INCREMENT_SOLD_SCRIPT_ID, params));
-            bulkRequest.add(request);
-        }
-
-        // 4.发送请求
+        if (courseIds == null || courseIds.isEmpty()) return;
         try {
-            restHighLevelClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+            StringBuilder sb = new StringBuilder();
+            for (Long courseId : courseIds) {
+                Map<String, Object> meta = new HashMap<>();
+                Map<String, Object> innerMeta = new HashMap<>();
+                innerMeta.put("_id", courseId);
+                meta.put("update", innerMeta);
+                sb.append(JsonUtils.toJsonStr(meta)).append("\n");
+                Map<String, Object> params = new HashMap<>();
+                params.put(INCREMENT_SOLD_SCRIPT_PARAM, amount);
+                Map<String, Object> script = new HashMap<>();
+                script.put("id", INCREMENT_SOLD_SCRIPT_ID);
+                script.put("params", params);
+                Map<String, Object> body = new HashMap<>();
+                body.put("script", script);
+                sb.append(JsonUtils.toJsonStr(body)).append("\n");
+            }
+            String endpoint = "/" + INDEX_NAME + "/_bulk";
+            Request request = new Request("POST", endpoint);
+            request.setEntity(new NStringEntity(sb.toString(), ContentType.create("application/x-ndjson")));
+            Response response = restClient.performRequest(request);
+            int status = response.getStatusLine().getStatusCode();
+            if (status >= 300) {
+                String body = EntityUtils.toString(response.getEntity());
+                log.warn("批量增量更新失败: {}", body);
+            }
         } catch (Exception e) {
             throw new CommonException(UPDATE_COURSE_STATUS_ERROR, e);
         }
@@ -136,44 +200,63 @@ public class CourseRepositoryImpl implements CourseRepository {
 
     @Override
     public void saveAll(List<Course> list) {
-        // 1.创建BulkRequest
-        BulkRequest request = new BulkRequest(INDEX_NAME);
-        // 2.添加参数
-        for (Course course : list) {
-            request.add(new IndexRequest(INDEX_NAME)
-                    .id(course.getId().toString())
-                    .source(JsonUtils.toJsonStr(course), XContentType.JSON));
-        }
-        // 3.批处理
+        if (list == null || list.isEmpty()) return;
         try {
-            BulkResponse bulkResponse = restHighLevelClient.bulk(request, RequestOptions.DEFAULT);
-            for (BulkItemResponse itemResponse : bulkResponse.getItems()) {
-                if (itemResponse.status().compareTo(RestStatus.BAD_REQUEST) >= 0) {
-                    log.error("批处理失败，id:{}, 原因:{}", itemResponse.getId(), itemResponse.getFailureMessage());
-                }
+            // 构建 NDJSON bulk 请求体
+            StringBuilder sb = new StringBuilder();
+            for (Course course : list) {
+                // action 行
+                Map<String, Object> action = new HashMap<>();
+                Map<String, Object> indexAction = new HashMap<>();
+                indexAction.put("_id", course.getId());
+                action.put("index", indexAction);
+                sb.append(JsonUtils.toJsonStr(action)).append("\n");
+                // source 行
+                sb.append(JsonUtils.toJsonStr(course)).append("\n");
             }
-        } catch (IOException e) {
+            String endpoint = "/" + INDEX_NAME + "/_bulk";
+            Request request = new Request("POST", endpoint);
+            request.setEntity(new NStringEntity(sb.toString(), ContentType.create("application/x-ndjson")));
+            Response response = restClient.performRequest(request);
+            int status = response.getStatusLine().getStatusCode();
+            if (status >= 300) {
+                String body = EntityUtils.toString(response.getEntity());
+                throw new CommonException(SAVE_COURSE_ERROR, new RuntimeException("批量保存课程失败: " + body));
+            }
+            // 解析响应，检查是否有失败项
+            String body = EntityUtils.toString(response.getEntity());
+            if (body.contains("\"errors\":true")) {
+                log.warn("批量保存有失败项: {}", body);
+            }
+        } catch (CommonException ce) {
+            throw ce;
+        } catch (Exception e) {
             throw new CommonException(SAVE_COURSE_ERROR, e);
         }
     }
 
     @Override
     public void deleteByIds(List<Long> courseIds) {
-        // 1.创建BulkRequest
-        BulkRequest request = new BulkRequest(INDEX_NAME);
-        // 2.添加参数
-        for (Long courseId : courseIds) {
-            request.add(new DeleteRequest(INDEX_NAME, courseId.toString()));
-        }
-        // 3.批处理
+        if (courseIds == null || courseIds.isEmpty()) return;
         try {
-            BulkResponse bulkResponse = restHighLevelClient.bulk(request, RequestOptions.DEFAULT);
-            for (BulkItemResponse itemResponse : bulkResponse.getItems()) {
-                if (itemResponse.status().compareTo(RestStatus.BAD_REQUEST) >= 0) {
-                    log.error("批处理失败，id:{}, 原因:{}", itemResponse.getId(), itemResponse.getFailureMessage());
-                }
+            StringBuilder sb = new StringBuilder();
+            for (Long courseId : courseIds) {
+                Map<String, Object> action = new HashMap<>();
+                Map<String, Object> deleteAction = new HashMap<>();
+                deleteAction.put("_id", courseId);
+                action.put("delete", deleteAction);
+                sb.append(JsonUtils.toJsonStr(action)).append("\n");
             }
-        } catch (IOException e) {
+            String endpoint = "/" + INDEX_NAME + "/_bulk";
+            Request request = new Request("POST", endpoint);
+            request.setEntity(new NStringEntity(sb.toString(), ContentType.create("application/x-ndjson")));
+            Response response = restClient.performRequest(request);
+            int status = response.getStatusLine().getStatusCode();
+            if (status >= 300) {
+                String body = EntityUtils.toString(response.getEntity());
+                log.warn("批量删除失败: {}", body);
+            }
+        } catch (Exception e) {
             throw new CommonException(SAVE_COURSE_ERROR, e);
         }
     }
@@ -212,7 +295,7 @@ public class CourseRepositoryImpl implements CourseRepository {
         try {
             Request request = new Request("GET", "/" + INDEX_NAME + "/_count");
             Response response = restClient.performRequest(request);
-            String body = org.apache.http.util.EntityUtils.toString(response.getEntity());
+            String body = EntityUtils.toString(response.getEntity());
             // 解析 {"count": 10, "_shards": {...}}
             if (body != null && body.contains("\"count\":")) {
                 String countStr = body.split("\"count\":")[1].split(",")[0].trim();
@@ -242,27 +325,36 @@ public class CourseRepositoryImpl implements CourseRepository {
             }
             // 2.创建新索引，指定正确的mapping
             String mapping = "{\n" +
-                    "  \"properties\": {\n" +
-                    "    \"id\": {\"type\": \"long\"},\n" +
-                    "    \"name\": {\"type\": \"text\", \"analyzer\": \"standard\", \"search_analyzer\": \"standard\", \"fields\": {\"keyword\": {\"type\": \"keyword\"}}},\n" +
-                    "    \"categoryIdLv1\": {\"type\": \"long\"},\n" +
-                    "    \"categoryIdLv2\": {\"type\": \"long\"},\n" +
-                    "    \"categoryIdLv3\": {\"type\": \"long\"},\n" +
-                    "    \"free\": {\"type\": \"boolean\"},\n" +
-                    "    \"type\": {\"type\": \"integer\"},\n" +
-                    "    \"sold\": {\"type\": \"integer\"},\n" +
-                    "    \"price\": {\"type\": \"integer\"},\n" +
-                    "    \"score\": {\"type\": \"integer\"},\n" +
-                    "    \"teacher\": {\"type\": \"long\"},\n" +
-                    "    \"sections\": {\"type\": \"integer\"},\n" +
-                    "    \"coverUrl\": {\"type\": \"keyword\"},\n" +
-                    "    \"publishTime\": {\"type\": \"date\", \"format\": \"yyyy-MM-dd'T'HH:mm:ss||yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis\"}\n" +
+                    "  \"mappings\": {\n" +
+                    "    \"properties\": {\n" +
+                    "      \"id\": {\"type\": \"long\"},\n" +
+                    "      \"name\": {\"type\": \"text\", \"analyzer\": \"standard\", \"search_analyzer\": \"standard\", \"fields\": {\"keyword\": {\"type\": \"keyword\"}}},\n" +
+                    "      \"categoryIdLv1\": {\"type\": \"long\"},\n" +
+                    "      \"categoryIdLv2\": {\"type\": \"long\"},\n" +
+                    "      \"categoryIdLv3\": {\"type\": \"long\"},\n" +
+                    "      \"free\": {\"type\": \"boolean\"},\n" +
+                    "      \"type\": {\"type\": \"integer\"},\n" +
+                    "      \"sold\": {\"type\": \"integer\"},\n" +
+                    "      \"price\": {\"type\": \"integer\"},\n" +
+                    "      \"score\": {\"type\": \"integer\"},\n" +
+                    "      \"teacher\": {\"type\": \"long\"},\n" +
+                    "      \"sections\": {\"type\": \"integer\"},\n" +
+                    "      \"coverUrl\": {\"type\": \"keyword\"},\n" +
+                    "      \"publishTime\": {\"type\": \"date\", \"format\": \"yyyy-MM-dd'T'HH:mm:ss||yyyy-MM-dd HH:mm:ss||yyyy-MM-dd||epoch_millis\"}\n" +
+                    "    }\n" +
                     "  }\n" +
                     "}";
             Request createRequest = new Request("PUT", "/" + INDEX_NAME);
-            createRequest.setJsonEntity(mapping);
-            restClient.performRequest(createRequest);
+            createRequest.setEntity(new NStringEntity(mapping, ContentType.APPLICATION_JSON));
+            Response createResponse = restClient.performRequest(createRequest);
+            int createStatus = createResponse.getStatusLine().getStatusCode();
+            if (createStatus >= 300) {
+                String body = EntityUtils.toString(createResponse.getEntity());
+                throw new CommonException(SAVE_COURSE_ERROR, new RuntimeException("创建索引失败: " + body));
+            }
             log.info("已创建新索引[{}]", INDEX_NAME);
+        } catch (CommonException ce) {
+            throw ce;
         } catch (Exception e) {
             log.error("重建索引[{}]失败: {}", INDEX_NAME, e.getMessage());
             throw new CommonException(SAVE_COURSE_ERROR, e);
