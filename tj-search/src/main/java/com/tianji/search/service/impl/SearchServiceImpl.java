@@ -215,6 +215,7 @@ public class SearchServiceImpl implements ISearchService {
 
     /**
      * 如果 coverUrl 仅存储文件名（而非完整 URL），则补上网关访问前缀。
+     * 同时处理 /files/xxx 这类未带 public 的错误路径。
      */
     private void normalizeCoverUrls(List<CourseVO> courses) {
         if (CollUtils.isEmpty(courses)) {
@@ -226,11 +227,22 @@ public class SearchServiceImpl implements ISearchService {
                 continue;
             }
             String trimmed = url.trim();
+            // 已有正确前缀或 http(s) 绝对路径，直接通过
             if (trimmed.startsWith("http://") || trimmed.startsWith("https://")
-                    || trimmed.startsWith("/")) {
+                    || trimmed.startsWith(FILE_ACCESS_PREFIX)) {
                 continue;
             }
-            c.setCoverUrl(FILE_ACCESS_PREFIX + trimmed);
+            // 形如 /files/xxx.jpg → 转换为 /files/public/xxx.jpg
+            if (trimmed.startsWith("/files/")) {
+                String filename = trimmed.substring("/files/".length());
+                c.setCoverUrl(FILE_ACCESS_PREFIX + filename);
+                continue;
+            }
+            // 相对路径（纯文件名）
+            if (!trimmed.startsWith("/")) {
+                c.setCoverUrl(FILE_ACCESS_PREFIX + trimmed);
+            }
+            // 其他以 / 开头但非 files 路径的，保持原样（可能走网关其他服务）
         }
     }
 

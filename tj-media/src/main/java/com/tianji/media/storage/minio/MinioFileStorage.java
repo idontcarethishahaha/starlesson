@@ -56,6 +56,17 @@ public class MinioFileStorage implements IFileStorage {
     public InputStream downloadFile(String key) {
         String bucketName = "tj-media";
         try {
+            // 先确认对象是否存在，避免 getObject 在不存在时抛出异常
+            try {
+                minioClient.statObject(StatObjectArgs.builder()
+                        .bucket(bucketName)
+                        .object(key)
+                        .build());
+            } catch (Exception ex) {
+                // 对象不存在或其他访问错误，直接返回 null，交由上层处理
+                log.warn("文件不存在或不可访问: {}", key);
+                return null;
+            }
             return minioClient.getObject(
                     GetObjectArgs.builder()
                             .bucket(bucketName)
@@ -64,7 +75,7 @@ public class MinioFileStorage implements IFileStorage {
             );
         } catch (Exception e) {
             log.error("下载文件失败: {}", key, e);
-            throw new CommonException("下载文件失败", e);
+            return null;
         }
     }
 

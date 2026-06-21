@@ -37,7 +37,7 @@ public class FileController {
     }
 
     @Operation(summary = "获取文件信息")
-    @GetMapping("/{id}")
+    @GetMapping("/{id:\\d+}")
     public FileDTO getFileInfo(
             @Parameter(description = "文件id", example = "1") @PathVariable("id") Long id) {
         return fileService.getFileInfo(id);
@@ -47,11 +47,11 @@ public class FileController {
     @GetMapping("/public/{key}")
     public ResponseEntity<byte[]> getFileByKey(@PathVariable("key") String key) {
         if (StringUtils.isBlank(key)) {
-            return ResponseEntity.notFound().build();
+            return placeholderResponse();
         }
         try (InputStream inputStream = fileService.downloadByKey(key)) {
             if (inputStream == null) {
-                return ResponseEntity.notFound().build();
+                return placeholderResponse();
             }
             byte[] bytes = inputStream.readAllBytes();
             HttpHeaders headers = new HttpHeaders();
@@ -73,12 +73,36 @@ public class FileController {
             return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
         } catch (Exception e) {
             log.warn("读取文件失败: {}", key, e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return placeholderResponse();
         }
     }
 
+    /**
+     * 返回一张 1x1 透明 GIF 占位图，避免前端图片区域出现裂图。
+     */
+    private static ResponseEntity<byte[]> placeholderResponse() {
+        byte[] gif = new byte[] {
+                0x47, 0x49, 0x46, 0x38, 0x39, 0x61, // GIF89a
+                0x01, 0x00, 0x01, 0x00,             // 1x1 像素
+                (byte) 0x80, 0x00, 0x00,             // 全局颜色表
+                (byte) 0xFF, (byte) 0xFF, (byte) 0xFF,
+                0x00, 0x00, 0x00,
+                0x21, (byte) 0xF9, 0x04,             // 图形控制扩展
+                0x01, 0x00, 0x00, 0x00,
+                0x2C, 0x00, 0x00, 0x00, 0x00,       // 图像描述符
+                0x01, 0x00, 0x01, 0x00, 0x00,
+                0x02, 0x02, 0x44, 0x01, 0x00,
+                0x3B                                 // 结束
+        };
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.IMAGE_GIF);
+        headers.setContentLength(gif.length);
+        headers.setCacheControl("no-store");
+        return new ResponseEntity<>(gif, headers, HttpStatus.OK);
+    }
+
     @Operation(summary = "删除文件")
-    @DeleteMapping("/{id}")
+    @DeleteMapping("/{id:\\d+}")
     public void deleteFileById(
             @Parameter(description = "文件id", example = "1") @PathVariable("id") Long id) {
         fileService.removeById(id);
