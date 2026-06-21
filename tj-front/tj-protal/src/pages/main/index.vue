@@ -199,7 +199,7 @@ const getInterestData = async () => {
         interest.value = new Set(res.data);
       } else {
         console.log(res.msg)
-        interestDialog.value(true);
+        interestDialog.value = true;
       }
     })
     .catch(() => {

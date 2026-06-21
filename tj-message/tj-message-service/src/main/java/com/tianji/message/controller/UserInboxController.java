@@ -35,4 +35,28 @@ public class UserInboxController {
     public PageDTO<UserInboxDTO> queryUserInBoxesPage(UserInboxQuery query){
         return inboxService.queryUserInBoxesPage(query);
     }
+
+    @Operation(summary = "获取未读消息数")
+    @GetMapping("/unread")
+    public Integer queryUnreadCount(){
+        return inboxService.queryUnreadCount();
+    }
+
+    @Operation(summary = "根据消息类型获取未读消息数")
+    @GetMapping("/unread/{type}")
+    public Integer queryUnreadCountByType(@PathVariable("type") Integer type){
+        return inboxService.queryUnreadCountByType(type);
+    }
+
+    @Operation(summary = "标记消息已读")
+    @PostMapping("/mark/{id}")
+    public void markAsRead(@PathVariable("id") Long id){
+        inboxService.markAsRead(id);
+    }
+
+    @Operation(summary = "标记全部消息已读")
+    @PostMapping("/markAll")
+    public void markAllAsRead(){
+        inboxService.markAllAsRead();
+    }
 }

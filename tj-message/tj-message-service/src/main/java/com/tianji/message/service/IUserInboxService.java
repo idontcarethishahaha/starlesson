@@ -26,4 +26,12 @@ public interface IUserInboxService extends IService<UserInbox> {
     PageDTO<UserInboxDTO> queryUserInBoxesPage(UserInboxQuery query);
 
     Long sentMessageToUser(UserInboxFormDTO userInboxFormDTO);
+
+    Integer queryUnreadCount();
+
+    Integer queryUnreadCountByType(Integer type);
+
+    void markAsRead(Long id);
+
+    void markAllAsRead();
 }

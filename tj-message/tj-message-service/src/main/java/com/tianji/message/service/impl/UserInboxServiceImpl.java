@@ -130,4 +130,43 @@ public class UserInboxServiceImpl extends ServiceImpl<UserInboxMapper, UserInbox
         save(inbox);
         return inbox.getId();
     }
+
+    @Override
+    public Integer queryUnreadCount() {
+        Long userId = UserContext.getUser();
+        return Math.toIntExact(lambdaQuery()
+                .eq(UserInbox::getUserId, userId)
+                .eq(UserInbox::getIsRead, false)
+                .count());
+    }
+
+    @Override
+    public Integer queryUnreadCountByType(Integer type) {
+        Long userId = UserContext.getUser();
+        return Math.toIntExact(lambdaQuery()
+                .eq(UserInbox::getUserId, userId)
+                .eq(UserInbox::getIsRead, false)
+                .eq(UserInbox::getType, type)
+                .count());
+    }
+
+    @Override
+    public void markAsRead(Long id) {
+        Long userId = UserContext.getUser();
+        lambdaUpdate()
+                .eq(UserInbox::getId, id)
+                .eq(UserInbox::getUserId, userId)
+                .set(UserInbox::getIsRead, true)
+                .update();
+    }
+
+    @Override
+    public void markAllAsRead() {
+        Long userId = UserContext.getUser();
+        lambdaUpdate()
+                .eq(UserInbox::getUserId, userId)
+                .eq(UserInbox::getIsRead, false)
+                .set(UserInbox::getIsRead, true)
+                .update();
+    }
 }
