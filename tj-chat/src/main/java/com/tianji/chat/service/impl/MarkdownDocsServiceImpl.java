@@ -91,7 +91,10 @@ public class MarkdownDocsServiceImpl extends ServiceImpl<MarkdownDocsMapper, Mar
             }
 
             String markdownContent = contentBuilder.toString();
-            long userId = UserContext.getUser();
+            Long userId = UserContext.getUser();
+            if (userId == null) {
+                throw new BadRequestException("请先登录");
+            }
 
             // markdownDocsMapper.insert(...)
             MarkdownDocs markdownDocs = new MarkdownDocs();
@@ -115,8 +118,12 @@ public class MarkdownDocsServiceImpl extends ServiceImpl<MarkdownDocsMapper, Mar
 
     @Override
     public PageDTO<MarkdownDocs> queryMarkdownPage(PageQuery query) {
+        Long userId = UserContext.getUser();
+        if (userId == null) {
+            return PageDTO.empty(0L, 0L);
+        }
         Page<MarkdownDocs> page = this.lambdaQuery()
-                .eq(MarkdownDocs::getUserId, UserContext.getUser())
+                .eq(MarkdownDocs::getUserId, userId)
                 .page(query.toMpPageDefaultSortByCreateTimeDesc());
         page.getRecords().stream().forEach(i->i.setContent(null));
         return PageDTO.of(page);
@@ -186,7 +193,10 @@ public class MarkdownDocsServiceImpl extends ServiceImpl<MarkdownDocsMapper, Mar
 
     @Override
     public String getMarkdown(Long fileId) {
-        long userId =UserContext.getUser();
+        Long userId = UserContext.getUser();
+        if (userId == null) {
+            throw new BadRequestException("请先登录");
+        }
 
         MarkdownDocs markdownDocs = lambdaQuery()
                 .eq(MarkdownDocs::getId, fileId)

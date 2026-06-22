@@ -3,8 +3,7 @@ export const TOKEN_NAME = 'token';
 
 /**
  * 开发环境 API 基础地址
- * - 如果后端网关在本机运行（端口 8080），改为 http://localhost:8080
- * - 如果后端服务（tj-chat: 8094, tj-aigc: 8092 等）在本机分开运行，改为 http://localhost:8094
- * - 生产环境通常通过 Nginx/Vite proxy 代理，此处可留空
+ * - 所有请求应该走网关（端口 10010），再由网关转发到具体服务
+ * - chat-service: 8095，aigc-service: 8092/8094，media-service: 8084，user-service: 8081
  */
-export const devAPIHost = 'http://localhost:8080';
+export const devAPIHost = 'http://localhost:10010';

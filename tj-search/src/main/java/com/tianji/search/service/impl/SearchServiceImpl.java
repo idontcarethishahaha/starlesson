@@ -124,7 +124,8 @@ public class SearchServiceImpl implements ISearchService {
         return courses;
     }
 
-    private static final String FILE_ACCESS_PREFIX = "/files/public/";
+    // 课程封面图片直接访问 MinIO
+    private static final String MINIO_BASE_URL = "http://192.168.227.128:9000/tj-media/img-course-cover/";
 
     private List<CourseVO> queryTopNByCategoryIdLv2sAndFree(
             List<Long> categoryIds, Boolean isFree, String sortBy, boolean isASC, int n) {
@@ -214,12 +215,12 @@ public class SearchServiceImpl implements ISearchService {
     }
 
     /**
-     * 统一封面 URL 前缀，确保所有情况都指向 media-service 的公开文件接口：
-     * - http(s)://...          → 原样（第三方 CDN）
-     * - /files/public/xxx       → 原样（已经是正确格式）
-     * - /files/xxx              → /files/public/xxx
-     * - files/xxx               → /files/public/xxx
-     * - xxx.png                 → /files/public/xxx.png
+     * 统一封面 URL，直接访问 MinIO：
+     * - http://192.168.227.128:9000/tj-media/... → 原样
+     * - http://旧IP/...                          → 提取文件名，拼成 MinIO URL
+     * - /files/public/xxx                        → 提取文件名，拼成 MinIO URL
+     * - /files/xxx                               → 提取文件名，拼成 MinIO URL
+     * - xxx.png                                  → 拼成 MinIO URL
      */
     private void normalizeCoverUrls(List<CourseVO> courses) {
         if (CollUtils.isEmpty(courses)) {
@@ -231,32 +232,43 @@ public class SearchServiceImpl implements ISearchService {
                 continue;
             }
             String trimmed = url.trim();
-            // 1) http(s) 绝对路径 → 原样
+            // 1) 已经是新的 MinIO 路径 → 原样
+            if (trimmed.startsWith("http://192.168.227.128:9000/")) {
+                continue;
+            }
+            // 2) http(s) 其他路径（旧IP等）→ 提取文件名
             if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+                int lastSlash = trimmed.lastIndexOf('/');
+                if (lastSlash > 0 && lastSlash < trimmed.length() - 1) {
+                    String filename = trimmed.substring(lastSlash + 1);
+                    c.setCoverUrl(MINIO_BASE_URL + filename);
+                }
                 continue;
             }
-            // 2) 已经是正确格式 → 原样
-            if (trimmed.startsWith(FILE_ACCESS_PREFIX)) {
+            // 3) /files/public/xxx → 提取文件名
+            if (trimmed.startsWith("/files/public/")) {
+                String filename = trimmed.substring("/files/public/".length());
+                c.setCoverUrl(MINIO_BASE_URL + filename);
                 continue;
             }
-            // 3) /files/xxx → 提取文件名
+            // 4) /files/xxx → 提取文件名
             if (trimmed.startsWith("/files/")) {
                 String filename = trimmed.substring("/files/".length());
-                c.setCoverUrl(FILE_ACCESS_PREFIX + filename);
+                c.setCoverUrl(MINIO_BASE_URL + filename);
                 continue;
             }
-            // 4) files/xxx → 提取文件名
+            // 5) files/xxx → 提取文件名
             if (trimmed.startsWith("files/")) {
                 String filename = trimmed.substring("files/".length());
-                c.setCoverUrl(FILE_ACCESS_PREFIX + filename);
+                c.setCoverUrl(MINIO_BASE_URL + filename);
                 continue;
             }
-            // 5) 纯文件名（如 a71d...png） → 补全前缀
+            // 6) 纯文件名 → 拼成 MinIO URL
             if (!trimmed.startsWith("/")) {
-                c.setCoverUrl(FILE_ACCESS_PREFIX + trimmed);
+                c.setCoverUrl(MINIO_BASE_URL + trimmed);
                 continue;
             }
-            // 6) 其他以 / 开头但非 files 路径的 → 保持原样（可能是网关其他服务的资源）
+            // 7) 其他 → 保持原样
         }
     }
 

@@ -4,7 +4,7 @@
  Source Server         : tianji
  Source Server Type    : MySQL
  Source Server Version : 80029 (8.0.29)
- Source Host           : 192.168.150.101:3306
+ Source Host           : 192.168.227.128:3306
  Source Schema         : tj_course
 
  Target Server Type    : MySQL

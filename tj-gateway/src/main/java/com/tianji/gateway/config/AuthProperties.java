@@ -31,15 +31,6 @@ public class AuthProperties implements InitializingBean {
         excludePath.add("POST:/files/**");
         excludePath.add("GET:/ms/files/**");
         excludePath.add("POST:/ms/files/**");
-        // AI聊天相关路径
-        excludePath.add("GET:/chat/**");
-        excludePath.add("POST:/chat/**");
-        excludePath.add("GET:/session/**");
-        excludePath.add("POST:/session/**");
-        excludePath.add("GET:/file/**");
-        excludePath.add("POST:/file/**");
-        excludePath.add("GET:/knowledge/**");
-        excludePath.add("POST:/knowledge/**");
         // 头像路径
         excludePath.add("GET:/img-tx/**");
     }

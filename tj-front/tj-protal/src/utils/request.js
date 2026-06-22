@@ -105,34 +105,75 @@ function alertLoginMessage() {
 }
 // const sleep = (delay) => new Promise((resolve) => setTimeout(resolve, delay))
 /**
- * 全局规范化文件访问路径：
- * - coverUrl / icon / imgUrl / imageUrl 等图片字段
- * 数据库中可能存储：a71d...png / img-tx/a71d...png / /img-tx/a71d...png / /files/xxx
- * media-service 正确路径：/files/public/{key}
- * 头像文件在 MinIO 中的位置：tj-media/img-tx/{filename}
+ * 全局规范化文件访问路径，直接访问 MinIO：
+ * - 课程封面 coverUrl/cover → http://192.168.227.128:9000/tj-media/img-course-cover/{filename}
+ * - 头像 icon/avatar/userIcon → http://192.168.227.128:9000/tj-media/img-tx/{filename}
+ * - http://192.168.227.128:9000/... → 原样
+ * - http://旧IP/... → 提取文件名，拼成 MinIO URL
+ * - /files/public/xxx → 提取文件名，拼成 MinIO URL
+ * - 其他相对路径 → 提取文件名，拼成 MinIO URL
  */
-function normalizeFileUrl(url) {
+function normalizeFileUrl(url, keyName) {
   if (!url || typeof url !== 'string') return url;
   const trimmed = url.trim();
-  // 1) 已经是 http(s) 绝对路径 → 原样
-  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
-  // 2) 已经是 /files/public/xxx 格式 → 原样
-  if (trimmed.startsWith('/files/public/')) return trimmed;
-  // 3) /files/xxx → /files/public/xxx
-  if (trimmed.startsWith('/files/')) return '/files/public/' + trimmed.substring('/files/'.length);
-  // 4) files/xxx → /files/public/xxx
-  if (trimmed.startsWith('files/')) return '/files/public/' + trimmed.substring('files/'.length);
-  // 5) /img-tx/xxx → MinIO 完整 URL
+  
+  // 确定 MinIO 路径前缀
+  const MINIO_BASE = 'http://192.168.227.128:9000/tj-media/';
+  const COVER_KEYS = ['coverUrl', 'cover', 'imgUrl', 'imageUrl'];
+  const AVATAR_KEYS = ['icon', 'iconUrl', 'avatar', 'avatarUrl', 'userIcon', 'logo'];
+  
+  let minioPath;
+  if (COVER_KEYS.includes(keyName)) {
+    minioPath = MINIO_BASE + 'img-course-cover/';
+  } else if (AVATAR_KEYS.includes(keyName)) {
+    minioPath = MINIO_BASE + 'img-tx/';
+  } else {
+    minioPath = MINIO_BASE + 'img-course-cover/'; // 默认
+  }
+  
+  // 1) 已经是新的 MinIO 路径 → 原样
+  if (trimmed.startsWith('http://192.168.227.128:9000/')) return trimmed;
+  
+  // 2) http(s) 其他路径（旧IP等）→ 提取文件名
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    const lastSlash = trimmed.lastIndexOf('/');
+    if (lastSlash > 0 && lastSlash < trimmed.length - 1) {
+      return minioPath + trimmed.substring(lastSlash + 1);
+    }
+    return trimmed;
+  }
+  
+  // 3) /files/public/xxx → 提取文件名
+  if (trimmed.startsWith('/files/public/')) {
+    return minioPath + trimmed.substring('/files/public/'.length);
+  }
+  
+  // 4) /files/xxx → 提取文件名
+  if (trimmed.startsWith('/files/')) {
+    return minioPath + trimmed.substring('/files/'.length);
+  }
+  
+  // 5) files/xxx → 提取文件名
+  if (trimmed.startsWith('files/')) {
+    return minioPath + trimmed.substring('files/'.length);
+  }
+  
+  // 6) /img-tx/xxx → MinIO URL（头像）
   if (trimmed.startsWith('/img-tx/')) {
-    return 'http://192.168.227.128:9000/tj-media' + trimmed;
+    return MINIO_BASE + trimmed.substring(1); // 去掉开头的 /
   }
-  // 6) img-tx/xxx → MinIO 完整 URL
+  
+  // 7) img-tx/xxx → MinIO URL（头像）
   if (trimmed.startsWith('img-tx/')) {
-    return 'http://192.168.227.128:9000/tj-media/' + trimmed;
+    return MINIO_BASE + trimmed;
   }
-  // 7) 纯文件名（如 a71d...png） → /files/public/a71d...png
-  if (!trimmed.startsWith('/')) return '/files/public/' + trimmed;
-  // 8) 其他以 / 开头但非 files/img-tx 路径 → 保持原样（可能是网关其他服务的资源）
+  
+  // 8) 纯文件名 → 拼成 MinIO URL
+  if (!trimmed.startsWith('/')) {
+    return minioPath + trimmed;
+  }
+  
+  // 9) 其他 → 保持原样
   return trimmed;
 }
 function normalizeAllFileUrls(obj) {
@@ -146,7 +187,7 @@ function normalizeAllFileUrls(obj) {
   for (const key of Object.keys(obj)) {
     const val = obj[key];
     if (IMG_KEYS.has(key) && typeof val === 'string') {
-      obj[key] = normalizeFileUrl(val);
+      obj[key] = normalizeFileUrl(val, key);
     } else if (val !== null && typeof val === 'object') {
       normalizeAllFileUrls(val);
     }

@@ -17,14 +17,6 @@ tj:
       - POST:/files/**
       - GET:/ms/files/**
       - POST:/ms/files/**
-      - GET:/chat/**
-      - POST:/chat/**
-      - GET:/session/**
-      - POST:/session/**
-      - GET:/file/**
-      - POST:/file/**
-      - GET:/knowledge/**
-      - POST:/knowledge/**
       - GET:/img-tx/**
 spring:
   profiles:

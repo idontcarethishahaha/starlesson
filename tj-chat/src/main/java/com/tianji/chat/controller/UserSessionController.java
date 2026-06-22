@@ -4,6 +4,7 @@ import com.tianji.chat.domain.dto.UserSessionDTO;
 import com.tianji.chat.domain.po.UserSession;
 import com.tianji.chat.service.IUserSessionService;
 import com.tianji.common.domain.query.PageQuery;
+import com.tianji.common.exceptions.BadRequestException;
 import com.tianji.common.utils.UserContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -27,7 +28,11 @@ public class UserSessionController {
     @Operation(summary = "创建用户会话关联")
     @PostMapping
     public UserSession createUserSession(@RequestBody UserSessionDTO dto) {
-        dto.setUserId(UserContext.getUser());
+        Long userId = UserContext.getUser();
+        if (userId == null) {
+            throw new BadRequestException("请先登录");
+        }
+        dto.setUserId(userId);
         return userSessionService.createUserSession(dto);
     }
 
@@ -35,7 +40,11 @@ public class UserSessionController {
     @PutMapping("/{id}")
     public void updateUserSession(@PathVariable("id") Long id,
                                   UserSessionDTO dto) {
-        dto.setUserId(UserContext.getUser());
+        Long userId = UserContext.getUser();
+        if (userId == null) {
+            throw new BadRequestException("请先登录");
+        }
+        dto.setUserId(userId);
         userSessionService.updateUserSession(id,dto);
     }
 

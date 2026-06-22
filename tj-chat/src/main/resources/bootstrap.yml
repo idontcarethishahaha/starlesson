@@ -9,6 +9,7 @@ spring:
     name: chat-service
   cloud:
     nacos:
+      server-addr: 192.168.227.128:8848
       config:
         file-extension: yaml
         namespace: star-lesson-dev
@@ -16,7 +17,7 @@ spring:
       discovery:
         namespace: star-lesson-dev
         group: sl-group
-        ip: 192.168.29.1
+        ip: 192.168.227.128
   config:
     import:
       - optional:nacos:${spring.application.name}.yaml
@@ -57,11 +58,6 @@ tj:
   auth:
     resource:
       enable: true
-      excludeLoginPaths:
-        - /chat/**
-        - /session/**
-        - /file/**
-        - /knowledge/**
   mq:
     listener:
       retry:
