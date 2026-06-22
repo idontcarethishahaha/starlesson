@@ -125,7 +125,9 @@ public class SearchServiceImpl implements ISearchService {
     }
 
     // 课程封面图片直接访问 MinIO
-    private static final String MINIO_BASE_URL = "http://192.168.227.128:9000/tj-media/img-course-cover/";
+    private static final String MINIO_COVER_URL = "http://192.168.227.128:9000/tj-media/img-course-cover/";
+    // 教师头像图片直接访问 MinIO
+    private static final String MINIO_AVATAR_URL = "http://192.168.227.128:9000/tj-media/img-tx/";
 
     private List<CourseVO> queryTopNByCategoryIdLv2sAndFree(
             List<Long> categoryIds, Boolean isFree, String sortBy, boolean isASC, int n) {
@@ -196,13 +198,20 @@ public class SearchServiceImpl implements ISearchService {
             }
             return courses;
         }
-        Map<Long, String> tMap = teachers.stream()
-                .collect(Collectors.toMap(UserDTO::getId, UserDTO::getName));
+        Map<Long, UserDTO> tMap = teachers.stream()
+                .collect(Collectors.toMap(UserDTO::getId, t -> t));
         for (CourseVO c : courses) {
             String teacherStr = c.getTeacher();
             if (StringUtils.isNotBlank(teacherStr)) {
                 try {
-                    c.setTeacher(tMap.getOrDefault(Long.valueOf(teacherStr), "匿名"));
+                    Long teacherId = Long.valueOf(teacherStr);
+                    UserDTO teacher = tMap.get(teacherId);
+                    if (teacher != null) {
+                        c.setTeacher(teacher.getName());
+                        c.setIcon(teacher.getIcon());
+                    } else {
+                        c.setTeacher("匿名");
+                    }
                 } catch (NumberFormatException e) {
                     c.setTeacher("匿名");
                 }
@@ -215,11 +224,10 @@ public class SearchServiceImpl implements ISearchService {
     }
 
     /**
-     * 统一封面 URL，直接访问 MinIO：
+     * 统一封面和头像 URL，直接访问 MinIO：
      * - http://192.168.227.128:9000/tj-media/... → 原样
      * - http://旧IP/...                          → 提取文件名，拼成 MinIO URL
      * - /files/public/xxx                        → 提取文件名，拼成 MinIO URL
-     * - /files/xxx                               → 提取文件名，拼成 MinIO URL
      * - xxx.png                                  → 拼成 MinIO URL
      */
     private void normalizeCoverUrls(List<CourseVO> courses) {
@@ -227,49 +235,75 @@ public class SearchServiceImpl implements ISearchService {
             return;
         }
         for (CourseVO c : courses) {
-            String url = c.getCoverUrl();
-            if (StringUtils.isBlank(url)) {
-                continue;
-            }
-            String trimmed = url.trim();
-            // 1) 已经是新的 MinIO 路径 → 原样
-            if (trimmed.startsWith("http://192.168.227.128:9000/")) {
-                continue;
-            }
-            // 2) http(s) 其他路径（旧IP等）→ 提取文件名
-            if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
-                int lastSlash = trimmed.lastIndexOf('/');
-                if (lastSlash > 0 && lastSlash < trimmed.length() - 1) {
-                    String filename = trimmed.substring(lastSlash + 1);
-                    c.setCoverUrl(MINIO_BASE_URL + filename);
-                }
-                continue;
-            }
-            // 3) /files/public/xxx → 提取文件名
-            if (trimmed.startsWith("/files/public/")) {
-                String filename = trimmed.substring("/files/public/".length());
-                c.setCoverUrl(MINIO_BASE_URL + filename);
-                continue;
-            }
-            // 4) /files/xxx → 提取文件名
-            if (trimmed.startsWith("/files/")) {
-                String filename = trimmed.substring("/files/".length());
-                c.setCoverUrl(MINIO_BASE_URL + filename);
-                continue;
-            }
-            // 5) files/xxx → 提取文件名
-            if (trimmed.startsWith("files/")) {
-                String filename = trimmed.substring("files/".length());
-                c.setCoverUrl(MINIO_BASE_URL + filename);
-                continue;
-            }
-            // 6) 纯文件名 → 拼成 MinIO URL
-            if (!trimmed.startsWith("/")) {
-                c.setCoverUrl(MINIO_BASE_URL + trimmed);
-                continue;
-            }
-            // 7) 其他 → 保持原样
+            // 处理封面
+            normalizeUrl(c::getCoverUrl, c::setCoverUrl, MINIO_COVER_URL);
+            // 处理教师头像
+            normalizeUrl(c::getIcon, c::setIcon, MINIO_AVATAR_URL);
         }
+    }
+
+    private void normalizeUrl(java.util.function.Supplier<String> getter, java.util.function.Consumer<String> setter, String baseUrl) {
+        String url = getter.get();
+        if (StringUtils.isBlank(url)) {
+            return;
+        }
+        String trimmed = url.trim();
+        if (trimmed.startsWith("http://192.168.227.128:9000/")) {
+            return;
+        }
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+            int lastSlash = trimmed.lastIndexOf('/');
+            if (lastSlash > 0 && lastSlash < trimmed.length() - 1) {
+                String filename = trimmed.substring(lastSlash + 1);
+                filename = removeDuplicateSuffix(filename);
+                setter.accept(baseUrl + filename);
+            }
+            return;
+        }
+        if (trimmed.startsWith("/files/public/")) {
+            String filename = trimmed.substring("/files/public/".length());
+            filename = removeDuplicateSuffix(filename);
+            setter.accept(baseUrl + filename);
+            return;
+        }
+        if (trimmed.startsWith("/files/")) {
+            String filename = trimmed.substring("/files/".length());
+            filename = removeDuplicateSuffix(filename);
+            setter.accept(baseUrl + filename);
+            return;
+        }
+        if (trimmed.startsWith("files/")) {
+            String filename = trimmed.substring("files/".length());
+            filename = removeDuplicateSuffix(filename);
+            setter.accept(baseUrl + filename);
+            return;
+        }
+        if (!trimmed.startsWith("/")) {
+            String filename = removeDuplicateSuffix(trimmed);
+            setter.accept(baseUrl + filename);
+            return;
+        }
+    }
+
+    private String removeDuplicateSuffix(String filename) {
+        if (filename == null) return null;
+        // 处理 .png.png, .jpg.jpg 等重复后缀
+        if (filename.endsWith(".png.png")) {
+            return filename.substring(0, filename.length() - 4);
+        }
+        if (filename.endsWith(".jpg.jpg")) {
+            return filename.substring(0, filename.length() - 4);
+        }
+        if (filename.endsWith(".jpeg.jpeg")) {
+            return filename.substring(0, filename.length() - 5);
+        }
+        if (filename.endsWith(".gif.gif")) {
+            return filename.substring(0, filename.length() - 4);
+        }
+        if (filename.endsWith(".webp.webp")) {
+            return filename.substring(0, filename.length() - 5);
+        }
+        return filename;
     }
 
     @Override
